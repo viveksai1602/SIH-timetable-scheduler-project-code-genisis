@@ -22,7 +22,7 @@ const users: Record<string, User> = {
   'lecturer16': { id: 'lecturer16', name: 'Dr. Nancy Rodriguez', role: UserRole.Lecturer },
   'lecturer17': { id: 'lecturer17', name: 'Prof. Daniel Lewis', role: UserRole.Lecturer },
   'lecturer18': { id: 'lecturer18', name: 'Dr. Betty Walker', role: UserRole.Lecturer },
-  'student01': { id: 'student01', name: 'John Doe', role: UserRole.Student },
+  'student01': { id: 'student01', name: 'John Doe', role: UserRole.Student, section: 'Section A' },
 };
 
 let subjects: Subject[] = [
@@ -151,6 +151,12 @@ export const getDashboardData = (user: User) => {
             })
             .sort((a, b) => a.timeSlot.localeCompare(b.timeSlot));
         
+        if (user.role === UserRole.Lecturer) {
+            upcomingClassesRaw = upcomingClassesRaw.filter(entry => entry.lecturer === user.name);
+        } else if (user.role === UserRole.Student && user.section) {
+            upcomingClassesRaw = upcomingClassesRaw.filter(entry => entry.section === user.section);
+        }
+
         upcomingClasses = upcomingClassesRaw.map(c => ({
             subject: c.subject,
             time: c.timeSlot,

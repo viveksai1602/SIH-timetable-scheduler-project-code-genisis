@@ -16,6 +16,7 @@ export interface User {
   id: string;
   name: string;
   role: UserRole;
+  section?: string;
 }
 
 export interface Subject {

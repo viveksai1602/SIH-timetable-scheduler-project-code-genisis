@@ -50,6 +50,18 @@ export const SparklesIcon = ({ className = 'w-5 h-5' }: { className?: string }) 
         <path fillRule="evenodd" d="M12.586 2.586a2 2 0 012.828 0 2 2 0 010 2.828l-.793.793a1 1 0 00-1.414 1.414l.793-.793a2 2 0 012.828-2.828zM15 6a1 1 0 100-2 1 1 0 000 2zM5.414 2.586a2 2 0 00-2.828 0 2 2 0 000 2.828l.793.793a1 1 0 111.414-1.414L4 4.414A2 2 0 004 1.586l.793-.793a2 2 0 012.828-.001zM5 6a1 1 0 100-2 1 1 0 000 2zM2 13a1 1 0 011-1h1a1 1 0 110 2H3a1 1 0 01-1-1zm14 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM9 4a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM9 16a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zm-5.414-2.586a2 2 0 002.828 0 2 2 0 000-2.828l-.793-.793a1 1 0 01-1.414 1.414l.793.793zm10.828 0a2 2 0 000 2.828 2 2 0 002.828 0l.793-.793a1 1 0 011.414 1.414l-.793.793a2 2 0 000-2.828z" clipRule="evenodd" />
     </svg>
 );
+export const EyeIcon = ({ className = 'w-5 h-5' }: { className?: string }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+    </svg>
+);
+export const EyeOffIcon = ({ className = 'w-5 h-5' }: { className?: string }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7 .946-3.023 3.566-5.446 6.804-6.131M15 12a3 3 0 11-6 0 3 3 0 016 0zm6.042 4.125l-2.022-2.022M3.958 5.875l-2.022-2.022" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" />
+    </svg>
+);
 
 
 // --- COMPONENTS ---

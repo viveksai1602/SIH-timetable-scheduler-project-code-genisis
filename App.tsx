@@ -1,7 +1,8 @@
+
 import React, { useState, createContext, useContext, ReactNode, useEffect, useMemo } from 'react';
 import { User, UserRole, TimetableEntry, Classroom, Notification, Subject, NotificationTarget, TimetableObject, Faculty, Conflict } from './types';
 import { mockLogin, getDashboardData, createNewDraftTimetable, getTimetables, getClassrooms, getNotifications, getSubjects, saveTimetable, markNotificationAsRead, addSubject, deleteSubject, getHolidays, setHolidays, sendNotification, submitForReview, approveTimetable, rejectTimetable, getFaculty, deleteTimetable, addClassroom, deleteClassroom, addFacultyMember, deleteFacultyMember, checkForConflicts, updateClassroom, updateFacultyMember, createDraftFromTimetable, autoArrangeTimetable } from './services/mockApi';
-import { Header, Footer, Sidebar, Card, Button, Timetable, Modal, TrashIcon, CheckIcon, XIcon, DownloadIcon, PlusIcon, EditIcon, AlertTriangleIcon, SparklesIcon } from './components/ui';
+import { Header, Footer, Sidebar, Card, Button, Timetable, Modal, TrashIcon, CheckIcon, XIcon, DownloadIcon, PlusIcon, EditIcon, AlertTriangleIcon, SparklesIcon, EyeIcon, EyeOffIcon } from './components/ui';
 
 declare const XLSX: any;
 
@@ -47,11 +48,39 @@ export const useAuth = () => {
 // --- LOGIN PAGE (Combined with Home) ---
 const LoginPage = ({ onNavigate }: { onNavigate: (page: string) => void }) => {
     const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.Student);
+    const [userId, setUserId] = useState('');
+    const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [errors, setErrors] = useState({ userId: '', password: '' });
     const { login } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
 
+    const validate = () => {
+        const newErrors = { userId: '', password: '' };
+        let isValid = true;
+
+        // User ID validation: must be exactly 12 digits
+        if (!/^\d{12}$/.test(userId)) {
+            newErrors.userId = 'User ID must be exactly 12 digits.';
+            isValid = false;
+        }
+
+        // Password validation: must contain at least one letter and one number
+        if (!/(?=.*[A-Za-z])(?=.*\d)/.test(password)) {
+            newErrors.password = 'Password must contain at least one letter and one number.';
+            isValid = false;
+        }
+        
+        setErrors(newErrors);
+        return isValid;
+    };
+
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!validate()) {
+            return;
+        }
         setIsLoading(true);
         await login(selectedRole);
         setIsLoading(false);
@@ -85,8 +114,8 @@ const LoginPage = ({ onNavigate }: { onNavigate: (page: string) => void }) => {
                 </div>
 
                 <Card className="w-full max-w-sm border-t-4 border-cu-secondary" title="Login to Your Account">
-                    <form onSubmit={handleLogin} className="space-y-6">
-                        <div>
+                    <form onSubmit={handleLogin} className="space-y-4">
+                         <div>
                             <label htmlFor="role-select" className="block text-sm font-medium text-gray-700">I am a...</label>
                             <select
                                 id="role-select"
@@ -99,7 +128,43 @@ const LoginPage = ({ onNavigate }: { onNavigate: (page: string) => void }) => {
                                 <option value={UserRole.Admin}>Admin</option>
                             </select>
                         </div>
-                        <p className="text-sm text-gray-500">For demo purposes, select your role and click login.</p>
+                        <div>
+                            <label htmlFor="user-id" className="block text-sm font-medium text-gray-700">User ID</label>
+                            <input
+                                id="user-id"
+                                type="text"
+                                value={userId}
+                                onChange={(e) => setUserId(e.target.value.replace(/\D/g, ''))}
+                                maxLength={12}
+                                className={`mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none sm:text-sm rounded-md ${errors.userId ? 'border-red-500 ring-red-500' : 'focus:ring-cu-accent focus:border-cu-accent'}`}
+                                placeholder="Enter your 12-digit User ID"
+                            />
+                            {errors.userId && <p className="mt-1 text-xs text-red-600">{errors.userId}</p>}
+                        </div>
+
+                        <div>
+                            <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+                            <div className="relative">
+                                <input
+                                    id="password"
+                                    type={showPassword ? 'text' : 'password'}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className={`mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none sm:text-sm rounded-md ${errors.password ? 'border-red-500 ring-red-500' : 'focus:ring-cu-accent focus:border-cu-accent'}`}
+                                    placeholder="Enter your password"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500"
+                                >
+                                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                                </button>
+                            </div>
+                             {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
+                        </div>
+                        
+                        <p className="text-xs text-gray-500 text-center pt-2">For demo purposes, enter any valid data, select your role, and click login.</p>
                         <Button type="submit" className="w-full" disabled={isLoading}>
                             {isLoading ? 'Logging in...' : `Login as ${selectedRole}`}
                         </Button>
@@ -409,7 +474,7 @@ const CreateTimetableModal = ({ isOpen, onClose, onCreate }: {
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Generate New Timetable">
             <div className="space-y-4">
-                <p>A new draft timetable will be generated. You can specify the sections and class constraints.</p>
+                <p className="text-sm text-gray-600">A new draft timetable will be generated. You can specify the sections and class constraints.</p>
                 <div>
                     <label htmlFor="sections-input" className="block text-sm font-medium text-gray-700">Sections (comma-separated)</label>
                     <input
@@ -525,6 +590,8 @@ const SchedulerPage = () => {
     // View and Edit states
     const [isEditMode, setIsEditMode] = useState(false);
     const [selectedSection, setSelectedSection] = useState<string>('All');
+    const [viewMode, setViewMode] = useState<'student' | 'lecturer'>('student'); // 'student' or 'lecturer' for admin view
+    const [selectedLecturer, setSelectedLecturer] = useState<string>('');
 
     // Modal states
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -611,10 +678,22 @@ const SchedulerPage = () => {
         }
     },[sections, selectedSection]);
 
+    useEffect(() => {
+        if (allFaculty.length > 0 && selectedLecturer === '') {
+            setSelectedLecturer(allFaculty[0].name);
+        }
+    }, [allFaculty]);
+
     const filteredEntries = useMemo(() => {
         if (!selectedTimetable) return [];
+        
+        if (user?.role === UserRole.Admin && viewMode === 'lecturer') {
+            if (!selectedLecturer) return [];
+            return selectedTimetable.entries.filter(e => e.lecturer === selectedLecturer);
+        }
+
         return selectedTimetable.entries.filter(e => e.section === selectedSection);
-    }, [selectedTimetable, selectedSection]);
+    }, [selectedTimetable, selectedSection, user, viewMode, selectedLecturer]);
 
     const handleTimetableChange = (id: string) => setSelectedTimetable(timetables.find(t => t.id === id) || null);
 
@@ -719,6 +798,30 @@ const SchedulerPage = () => {
         }
         setIsAutoArranging(false);
     };
+
+    const handleExportToExcel = () => {
+        if (!selectedTimetable || filteredEntries.length === 0) return;
+
+        const dataForExport = filteredEntries.map(entry => ({
+            Day: entry.day,
+            'Time Slot': entry.timeSlot,
+            Subject: entry.subject,
+            Lecturer: entry.lecturer,
+            Classroom: entry.classroom,
+            Section: entry.section
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(dataForExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Timetable");
+
+        const viewName = (user?.role === UserRole.Admin && viewMode === 'lecturer') 
+            ? selectedLecturer.replace(/\s+/g, '_') 
+            : `${selectedSection.replace(/\s+/g, '_')}`;
+            
+        const fileName = `Timetable_v${selectedTimetable.version}_${viewName}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+    };
     
     const updateTimetableStatus = (updated: TimetableObject | undefined) => {
         if (updated) {
@@ -766,6 +869,35 @@ const SchedulerPage = () => {
     return (
         <div className="space-y-6">
             <Card title="Timetable Scheduler & Manager">
+                {user.role === UserRole.Admin && (
+                    <div className="border-b border-gray-200 mb-4">
+                        <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('student')}
+                                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+                                    viewMode === 'student'
+                                    ? 'border-cu-primary text-cu-primary'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                }`}
+                            >
+                                Student View
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('lecturer')}
+                                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+                                    viewMode === 'lecturer'
+                                    ? 'border-cu-primary text-cu-primary'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                }`}
+                            >
+                                Lecturer View
+                            </button>
+                        </nav>
+                    </div>
+                )}
+
                 <div className={`grid grid-cols-1 md:grid-cols-2 ${user.role === UserRole.Student ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-4 items-end`}>
                     {/* Timetable selection */}
                     {user.role !== UserRole.Student && (
@@ -782,12 +914,23 @@ const SchedulerPage = () => {
                         </div>
                     )}
 
-                    {/* Section selection */}
+                    {/* Section / Lecturer selection */}
                     <div className="flex flex-col lg:col-span-2">
-                        <label className="text-sm font-medium text-gray-700">Select Section</label>
-                        <select value={selectedSection} onChange={e => setSelectedSection(e.target.value)} className="p-2 border rounded-md">
-                            {sections.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                        {user.role === UserRole.Admin && viewMode === 'lecturer' ? (
+                            <>
+                                <label className="text-sm font-medium text-gray-700">Select Lecturer</label>
+                                <select value={selectedLecturer} onChange={e => setSelectedLecturer(e.target.value)} className="p-2 border rounded-md">
+                                    {allFaculty.map(f => <option key={f.id} value={f.name}>{f.name}</option>)}
+                                </select>
+                            </>
+                        ) : (
+                            <>
+                                <label className="text-sm font-medium text-gray-700">Select Section</label>
+                                <select value={selectedSection} onChange={e => setSelectedSection(e.target.value)} className="p-2 border rounded-md">
+                                    {sections.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                            </>
+                        )}
                     </div>
                     
                     {selectedTimetable && (
@@ -800,42 +943,54 @@ const SchedulerPage = () => {
                 </div>
                 {selectedTimetable?.notes && <p className="text-sm text-red-600 mt-2">Note: {selectedTimetable.notes}</p>}
                 
-                <div className="flex flex-wrap gap-2 mt-4 border-t pt-4">
-                    {/* Edit mode controls */}
-                    {isEditMode ? (
-                        <>
-                            <Button variant="success" onClick={handleSave}><CheckIcon /> Save Changes</Button>
-                            <Button variant="secondary" onClick={handleCancelEdit}><XIcon /> Cancel</Button>
-                        </>
-                    ) : (
-                        canInitiateEdit && <Button onClick={handleEdit}><EditIcon /> Edit</Button>
-                    )}
-                    
-                    {/* Workflow controls */}
-                    {selectedTimetable?.status === 'Draft' && canInitiateEdit && <Button onClick={handleSubmitForReview}>Submit for Review</Button>}
-                    {selectedTimetable?.status === 'Pending Approval' && user.role === UserRole.Admin && (
-                        <>
-                            <Button variant="success" onClick={handleApprove}><CheckIcon /> Approve</Button>
-                            <Button variant="danger" onClick={() => setIsRejectModalOpen(true)}><XIcon/> Reject</Button>
-                        </>
-                    )}
+                 <div className="flex flex-wrap items-start justify-between gap-2 mt-4 border-t pt-4">
+                    {/* Left-aligned actions */}
+                    <div className="flex flex-wrap gap-2">
+                        {isEditMode ? (
+                            <>
+                                <Button variant="success" onClick={handleSave}><CheckIcon /> Save Changes</Button>
+                                <Button variant="secondary" onClick={handleCancelEdit}><XIcon /> Cancel</Button>
+                            </>
+                        ) : (
+                            canInitiateEdit && <Button onClick={handleEdit}><EditIcon /> Edit</Button>
+                        )}
+                        
+                        {selectedTimetable?.status === 'Draft' && canInitiateEdit && <Button onClick={handleSubmitForReview}>Submit for Review</Button>}
+                        {selectedTimetable?.status === 'Pending Approval' && user.role === UserRole.Admin && (
+                            <>
+                                <Button variant="success" onClick={handleApprove}><CheckIcon /> Approve</Button>
+                                <Button variant="danger" onClick={() => setIsRejectModalOpen(true)}><XIcon/> Reject</Button>
+                            </>
+                        )}
 
-                    {user.role !== UserRole.Student && (
-                        <Button variant="secondary" onClick={handleRunConflictCheck} disabled={isCheckingConflicts}>
-                            <AlertTriangleIcon/> {isCheckingConflicts ? 'Checking...' : 'Check Conflicts'}
+                        {user.role !== UserRole.Student && (
+                            <Button variant="secondary" onClick={handleRunConflictCheck} disabled={isCheckingConflicts}>
+                                <AlertTriangleIcon/> {isCheckingConflicts ? 'Checking...' : 'Check Conflicts'}
+                            </Button>
+                        )}
+                    </div>
+
+                    {/* Right-aligned actions */}
+                    <div className="flex flex-wrap gap-2">
+                         <Button 
+                            variant="secondary" 
+                            onClick={handleExportToExcel} 
+                            disabled={!selectedTimetable || filteredEntries.length === 0}
+                         >
+                            <DownloadIcon /> Export as Excel
                         </Button>
-                    )}
-                    
-                    {user.role !== UserRole.Student && (
-                        <div className="flex-grow flex justify-end gap-2">
+                        {user.role !== UserRole.Student && (
                              <Button onClick={() => setIsCreateModalOpen(true)}><PlusIcon/> Generate Timetable</Button>
-                             {selectedTimetable && <Button onClick={handleCreateDraftFromCurrent}>Copy to New Draft</Button>}
-                             {selectedTimetable && (selectedTimetable.status === 'Draft' || selectedTimetable.status === 'Rejected') && canInitiateEdit && (
-                                <Button variant="danger" onClick={() => { setTimetableToDelete(selectedTimetable); setIsDeleteModalOpen(true); }}><TrashIcon /> Delete</Button>
-                             )}
-                        </div>
-                    )}
+                        )}
+                         {user.role !== UserRole.Student && selectedTimetable && (
+                            <Button onClick={handleCreateDraftFromCurrent}>Copy to New Draft</Button>
+                        )}
+                         {user.role !== UserRole.Student && selectedTimetable && (selectedTimetable.status === 'Draft' || selectedTimetable.status === 'Rejected') && canInitiateEdit && (
+                           <Button variant="danger" onClick={() => { setTimetableToDelete(selectedTimetable); setIsDeleteModalOpen(true); }}><TrashIcon /> Delete</Button>
+                        )}
+                    </div>
                 </div>
+
                 {conflictCheckRun && (
                     <div className={`mt-4 p-4 rounded-md ${conflicts.length > 0 ? 'bg-red-50' : 'bg-green-50'}`}>
                          <div className="flex justify-between items-start">
@@ -998,7 +1153,7 @@ const ManagementPage = () => {
                     {classrooms.map(c => (
                         <div key={c.id} className="flex justify-between items-center p-2 bg-gray-50 rounded-md">
                             <div>
-                                <p className="font-semibold">{c.name} <span className="text-sm font-normal text-gray-500">(Capacity: {c.capacity})</span></p>
+                                <p className="font-semibold text-cu-dark">{c.name} <span className="text-sm font-normal text-gray-500">(Capacity: {c.capacity})</span></p>
                             </div>
                             <div className="flex gap-2">
                                 <Button variant="secondary" className="p-2 h-8" onClick={() => handleOpenClassroomModal(c)}><EditIcon className="w-4 h-4" /></Button>
@@ -1014,7 +1169,7 @@ const ManagementPage = () => {
                     {faculty.map(f => (
                         <div key={f.id} className="flex justify-between items-center p-2 bg-gray-50 rounded-md">
                             <div>
-                                <p className="font-semibold">{f.name} <span className="text-sm font-normal text-gray-500">({f.department})</span></p>
+                                <p className="font-semibold text-cu-dark">{f.name} <span className="text-sm font-normal text-gray-500">({f.department})</span></p>
                             </div>
                             <div className="flex gap-2">
                                 <Button variant="secondary" className="p-2 h-8" onClick={() => handleOpenFacultyModal(f)}><EditIcon className="w-4 h-4" /></Button>
