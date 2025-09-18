@@ -55,6 +55,12 @@ const LoginPage = ({ onNavigate }: { onNavigate: (page: string) => void }) => {
     const { login } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
 
+    const ROLE_PASSWORDS = {
+        [UserRole.Student]: 'student123',
+        [UserRole.Lecturer]: 'teacher123',
+        [UserRole.Admin]: 'admin123',
+    };
+
     const validate = () => {
         const newErrors = { userId: '', password: '' };
         let isValid = true;
@@ -68,6 +74,9 @@ const LoginPage = ({ onNavigate }: { onNavigate: (page: string) => void }) => {
         // Password validation: must contain at least one letter and one number
         if (!/(?=.*[A-Za-z])(?=.*\d)/.test(password)) {
             newErrors.password = 'Password must contain at least one letter and one number.';
+            isValid = false;
+        } else if (password !== ROLE_PASSWORDS[selectedRole]) {
+            newErrors.password = 'Incorrect password for the selected role.';
             isValid = false;
         }
         
@@ -163,7 +172,7 @@ const LoginPage = ({ onNavigate }: { onNavigate: (page: string) => void }) => {
                              {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
                         </div>
                         
-                        <p className="text-xs text-gray-500 text-center pt-2">For demo purposes, enter any valid data, select your role, and click login.</p>
+                        <p className="text-xs text-gray-500 text-center pt-2">Passwords: student123, teacher123, admin123</p>
                         <Button type="submit" className="w-full" disabled={isLoading}>
                             {isLoading ? 'Logging in...' : `Login as ${selectedRole}`}
                         </Button>
