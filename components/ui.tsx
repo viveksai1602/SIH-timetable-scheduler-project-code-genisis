@@ -1,4 +1,5 @@
 
+
 import React, { ReactNode, useState } from 'react';
 import { TimetableEntry, User, UserRole, Conflict } from '../types';
 
@@ -63,6 +64,31 @@ export const EyeOffIcon = ({ className = 'w-5 h-5' }: { className?: string }) =>
     </svg>
 );
 
+export const UserIcon = ({ className = 'w-5 h-5' }: { className?: string }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+);
+
+export const LockClosedIcon = ({ className = 'w-5 h-5' }: { className?: string }) => (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+    </svg>
+);
+
+export const SpinnerIcon = ({ className = 'w-5 h-5' }: { className?: string }) => (
+    <svg className={`animate-spin ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+);
+
+export const GraduationCapIcon = ({ className = 'w-10 h-10' }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73V12.24l5 2.73 5-2.73v3.75z"/>
+    </svg>
+);
+
 
 // --- COMPONENTS ---
 
@@ -74,7 +100,10 @@ export const Header = ({ user, onLogout, onToggleSidebar }: { user: User; onLogo
                     <button onClick={onToggleSidebar} className="text-gray-500 mr-4 focus:outline-none hover:text-cu-primary">
                         <MenuIcon />
                     </button>
-                    <img src="https://sih.gov.in/img/logo.png" alt="SIH Logo" className="h-10 w-auto" />
+                    <div className="flex items-center gap-2 text-cu-primary">
+                        <GraduationCapIcon className="h-8 w-8" />
+                        <span className="text-xl font-bold">Smart Scheduler</span>
+                    </div>
                 </div>
                 <div className="flex items-center space-x-4">
                     <span className="text-gray-600 hidden md:block">Welcome, {user.name} ({user.role})</span>

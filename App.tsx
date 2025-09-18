@@ -1,8 +1,9 @@
 
+
 import React, { useState, createContext, useContext, ReactNode, useEffect, useMemo } from 'react';
 import { User, UserRole, TimetableEntry, Classroom, Notification, Subject, NotificationTarget, TimetableObject, Faculty, Conflict } from './types';
 import { mockLogin, getDashboardData, createNewDraftTimetable, getTimetables, getClassrooms, getNotifications, getSubjects, saveTimetable, markNotificationAsRead, addSubject, deleteSubject, getHolidays, setHolidays as apiSetHolidays, sendNotification, submitForReview, approveTimetable, rejectTimetable, getFaculty, deleteTimetable, addClassroom, deleteClassroom, addFacultyMember, deleteFacultyMember, checkForConflicts, updateClassroom, updateFacultyMember, createDraftFromTimetable, autoArrangeTimetable, cancelClass } from './services/mockApi';
-import { Header, Footer, Sidebar, Card, Button, Timetable, Modal, TrashIcon, CheckIcon, XIcon, DownloadIcon, PlusIcon, EditIcon, AlertTriangleIcon, SparklesIcon, EyeIcon, EyeOffIcon } from './components/ui';
+import { Header, Footer, Sidebar, Card, Button, Timetable, Modal, TrashIcon, CheckIcon, XIcon, DownloadIcon, PlusIcon, EditIcon, AlertTriangleIcon, SparklesIcon, EyeIcon, EyeOffIcon, UserIcon, LockClosedIcon, SpinnerIcon, GraduationCapIcon } from './components/ui';
 
 declare const XLSX: any;
 
@@ -65,13 +66,11 @@ const LoginPage = ({ onNavigate }: { onNavigate: (page: string) => void }) => {
         const newErrors = { userId: '', password: '' };
         let isValid = true;
 
-        // User ID validation: must be exactly 12 digits
         if (!/^\d{12}$/.test(userId)) {
             newErrors.userId = 'User ID must be exactly 12 digits.';
             isValid = false;
         }
 
-        // Password validation: must contain at least one letter and one number
         if (!/(?=.*[A-Za-z])(?=.*\d)/.test(password)) {
             newErrors.password = 'Password must contain at least one letter and one number.';
             isValid = false;
@@ -91,106 +90,103 @@ const LoginPage = ({ onNavigate }: { onNavigate: (page: string) => void }) => {
             return;
         }
         setIsLoading(true);
+        // Simulate network delay for a better UX
+        await new Promise(resolve => setTimeout(resolve, 1000));
         await login(selectedRole);
         setIsLoading(false);
         onNavigate('dashboard');
     };
-
-    const FeatureCard = ({ title, description }: { title: string, description: string }) => (
-        <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-            <h3 className="text-xl font-bold text-cu-primary mb-2">{title}</h3>
-            <p className="text-gray-600">{description}</p>
-        </div>
-    );
     
     return (
-        <div className="flex flex-col min-h-screen bg-gradient-to-br from-cu-light to-blue-100">
-            <header className="bg-white shadow-sm">
-                <nav className="container mx-auto px-6 py-4 flex justify-between items-center">
-                    <div className="flex items-center">
-                        <img src="https://sih.gov.in/img/logo.png" alt="SIH Logo" className="h-12 w-auto" />
+        <div className="flex flex-col min-h-screen bg-cu-light">
+            <main className="flex-grow flex items-center justify-center p-4">
+                <div className="w-full max-w-4xl flex flex-col md:flex-row bg-white rounded-2xl shadow-2xl overflow-hidden">
+                    {/* Left Panel - Branding */}
+                    <div className="hidden md:flex w-full md:w-1/2 bg-cu-primary p-12 text-white flex-col justify-center items-center text-center">
+                        <GraduationCapIcon className="h-20 w-20 mb-6" />
+                        <h1 className="text-3xl font-bold mb-3">Smart Scheduler</h1>
+                        <p className="text-cu-light/80">Automating academic excellence. Your schedule, simplified and optimized.</p>
                     </div>
-                </nav>
-            </header>
-            
-            <main className="flex-grow flex flex-col items-center justify-center py-12 px-4">
-                <div className="text-center max-w-2xl mb-10">
-                    <h1 className="text-4xl font-bold text-cu-primary tracking-tight sm:text-5xl">Welcome to the Future of Scheduling</h1>
-                    <p className="mt-4 text-lg text-gray-600">
-                        Our intelligent platform automates timetable creation, optimizing classroom usage and balancing faculty workloads. Please log in to access your dashboard.
-                    </p>
-                </div>
 
-                <Card className="w-full max-w-sm border-t-4 border-cu-secondary" title="Login to Your Account">
-                    <form onSubmit={handleLogin} className="space-y-4">
-                         <div>
-                            <label htmlFor="role-select" className="block text-sm font-medium text-gray-700">I am a...</label>
-                            <select
-                                id="role-select"
-                                value={selectedRole}
-                                onChange={(e) => setSelectedRole(e.target.value as UserRole)}
-                                className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-cu-dark text-cu-light border border-gray-600 focus:outline-none focus:ring-cu-accent focus:border-cu-accent sm:text-sm rounded-md"
-                            >
-                                <option value={UserRole.Student}>Student</option>
-                                <option value={UserRole.Lecturer}>Lecturer</option>
-                                <option value={UserRole.Admin}>Admin</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label htmlFor="user-id" className="block text-sm font-medium text-gray-700">User ID</label>
-                            <input
-                                id="user-id"
-                                type="text"
-                                value={userId}
-                                onChange={(e) => setUserId(e.target.value.replace(/\D/g, ''))}
-                                maxLength={12}
-                                className={`mt-1 block w-full pl-3 pr-10 py-2 text-base bg-transparent text-cu-light border border-gray-600 placeholder:text-gray-400 focus:outline-none sm:text-sm rounded-md [box-shadow:0_0_0_1000px_#212121_inset] ${errors.userId ? 'border-red-500 ring-red-500' : 'focus:ring-cu-accent focus:border-cu-accent'}`}
-                                placeholder="Enter your 12-digit User ID"
-                            />
-                            {errors.userId && <p className="mt-1 text-xs text-red-600">{errors.userId}</p>}
-                        </div>
-
-                        <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
-                            <div className="relative">
-                                <input
-                                    id="password"
-                                    type={showPassword ? 'text' : 'password'}
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className={`mt-1 block w-full pl-3 pr-10 py-2 text-base bg-transparent text-cu-light border border-gray-600 placeholder:text-gray-400 focus:outline-none sm:text-sm rounded-md [box-shadow:0_0_0_1000px_#212121_inset] ${errors.password ? 'border-red-500 ring-red-500' : 'focus:ring-cu-accent focus:border-cu-accent'}`}
-                                    placeholder="Enter your password"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500"
-                                >
-                                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                                </button>
-                            </div>
-                             {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
-                        </div>
+                    {/* Right Panel - Form */}
+                    <div className="w-full md:w-1/2 p-8 md:p-12">
+                        <h2 className="text-2xl font-bold text-cu-dark mb-2">Sign in to your account</h2>
+                        <p className="text-gray-600 mb-8">Welcome back! Please enter your details.</p>
                         
-                        <p className="text-xs text-gray-500 text-center pt-2">Passwords: student123, teacher123, admin123</p>
-                        <Button type="submit" className="w-full" disabled={isLoading}>
-                            {isLoading ? 'Logging in...' : `Login as ${selectedRole}`}
-                        </Button>
-                    </form>
-                </Card>
+                        <form onSubmit={handleLogin} className="space-y-6">
+                            <div>
+                                <label htmlFor="role-select" className="block text-sm font-medium text-gray-700">I am a...</label>
+                                <select
+                                    id="role-select"
+                                    value={selectedRole}
+                                    onChange={(e) => setSelectedRole(e.target.value as UserRole)}
+                                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-cu-accent focus:border-cu-accent sm:text-sm rounded-md"
+                                >
+                                    <option value={UserRole.Student}>Student</option>
+                                    <option value={UserRole.Lecturer}>Lecturer</option>
+                                    <option value={UserRole.Admin}>Admin</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label htmlFor="user-id" className="block text-sm font-medium text-gray-700">User ID</label>
+                                <div className="relative mt-1">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <UserIcon className="h-5 w-5 text-gray-400" />
+                                    </div>
+                                    <input
+                                        id="user-id"
+                                        type="text"
+                                        value={userId}
+                                        onChange={(e) => setUserId(e.target.value.replace(/\D/g, ''))}
+                                        maxLength={12}
+                                        className={`block w-full pl-10 pr-3 py-2 border rounded-md placeholder-gray-400 focus:outline-none sm:text-sm ${errors.userId ? 'border-red-500 ring-red-500' : 'border-gray-300 focus:ring-cu-accent focus:border-cu-accent'}`}
+                                        placeholder="12-digit User ID"
+                                    />
+                                </div>
+                                {errors.userId && <p className="mt-1 text-xs text-red-600">{errors.userId}</p>}
+                            </div>
 
-                <section className="w-full mt-20">
-                    <div className="container mx-auto px-6">
-                        <h2 className="text-3xl font-bold text-center text-cu-primary mb-12">Our Features</h2>
-                        <div className="grid md:grid-cols-3 gap-8">
-                            <FeatureCard title="Automated Scheduling" description="Generate clash-free, optimized timetables in minutes with our powerful algorithm." />
-                            <FeatureCard title="Role-Based Access" description="Separate, secure dashboards for Students, Lecturers, and Administrators." />
-                            <FeatureCard title="Review & Approval Workflow" description="Ensure quality with a formal review process by university authorities before publishing." />
-                        </div>
+                            <div>
+                                <div className="flex justify-between items-center">
+                                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+                                    <a href="#" onClick={(e) => { e.preventDefault(); alert('Password recovery feature is not yet implemented.'); }} className="text-sm text-cu-accent hover:underline">Forgot Password?</a>
+                                </div>
+                                <div className="relative mt-1">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <LockClosedIcon className="h-5 w-5 text-gray-400" />
+                                    </div>
+                                    <input
+                                        id="password"
+                                        type={showPassword ? 'text' : 'password'}
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        className={`block w-full pl-10 pr-10 py-2 border rounded-md placeholder-gray-400 focus:outline-none sm:text-sm ${errors.password ? 'border-red-500 ring-red-500' : 'border-gray-300 focus:ring-cu-accent focus:border-cu-accent'}`}
+                                        placeholder="Enter your password"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500"
+                                    >
+                                        {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                                    </button>
+                                </div>
+                                {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
+                            </div>
+                            
+                            <Button type="submit" className="w-full" disabled={isLoading}>
+                                {isLoading ? (
+                                    <>
+                                        <SpinnerIcon className="w-5 h-5" />
+                                        Authenticating...
+                                    </>
+                                ) : `Login as ${selectedRole}`}
+                            </Button>
+                        </form>
                     </div>
-                </section>
+                </div>
             </main>
-            <Footer />
         </div>
     );
 };
