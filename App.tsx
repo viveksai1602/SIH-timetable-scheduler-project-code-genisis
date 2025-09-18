@@ -1,8 +1,8 @@
 
 import React, { useState, createContext, useContext, ReactNode, useEffect, useMemo } from 'react';
-import { User, UserRole, TimetableEntry, Classroom, Notification, Subject, NotificationTarget, TimetableObject, Faculty, Conflict } from './types.ts';
-import { mockLogin, getDashboardData, createNewDraftTimetable, getTimetables, getClassrooms, getNotifications, getSubjects, saveTimetable, markNotificationAsRead, addSubject, deleteSubject, getHolidays, setHolidays as apiSetHolidays, sendNotification, submitForReview, approveTimetable, rejectTimetable, getFaculty, deleteTimetable, addClassroom, deleteClassroom, addFacultyMember, deleteFacultyMember, checkForConflicts, updateClassroom, updateFacultyMember, createDraftFromTimetable, autoArrangeTimetable, cancelClass } from './services/mockApi.ts';
-import { Header, Footer, Sidebar, Card, Button, Timetable, Modal, TrashIcon, CheckIcon, XIcon, DownloadIcon, PlusIcon, EditIcon, AlertTriangleIcon, SparklesIcon, EyeIcon, EyeOffIcon } from './components/ui.tsx';
+import { User, UserRole, TimetableEntry, Classroom, Notification, Subject, NotificationTarget, TimetableObject, Faculty, Conflict } from './types';
+import { mockLogin, getDashboardData, createNewDraftTimetable, getTimetables, getClassrooms, getNotifications, getSubjects, saveTimetable, markNotificationAsRead, addSubject, deleteSubject, getHolidays, setHolidays as apiSetHolidays, sendNotification, submitForReview, approveTimetable, rejectTimetable, getFaculty, deleteTimetable, addClassroom, deleteClassroom, addFacultyMember, deleteFacultyMember, checkForConflicts, updateClassroom, updateFacultyMember, createDraftFromTimetable, autoArrangeTimetable, cancelClass } from './services/mockApi';
+import { Header, Footer, Sidebar, Card, Button, Timetable, Modal, TrashIcon, CheckIcon, XIcon, DownloadIcon, PlusIcon, EditIcon, AlertTriangleIcon, SparklesIcon, EyeIcon, EyeOffIcon } from './components/ui';
 
 declare const XLSX: any;
 
@@ -100,7 +100,6 @@ const LoginPage = ({ onNavigate }: { onNavigate: (page: string) => void }) => {
                 <nav className="container mx-auto px-6 py-4 flex justify-between items-center">
                     <div className="flex items-center">
                         <img src="https://sih.gov.in/img/logo.png" alt="SIH Logo" className="h-12 w-auto" />
-                        <span className="text-2xl font-bold text-cu-primary ml-4">Smart Scheduler</span>
                     </div>
                 </nav>
             </header>
