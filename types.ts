@@ -67,6 +67,7 @@ export interface Notification {
   timestamp: string;
   isRead: boolean;
   target: NotificationTarget;
+  section?: string;
 }
 
 export interface Conflict {

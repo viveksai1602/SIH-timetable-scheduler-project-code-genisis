@@ -166,9 +166,9 @@ interface TimetableProps {
     isEditable: boolean;
     holidays: string[];
     conflicts: Conflict[];
-    onEntryMove: (draggedEntry: TimetableEntry, targetDay: string, targetSlot: string) => void;
-    onEntryDelete: (entryToDelete: TimetableEntry) => void;
-    onEntryCreate: (day: string, timeSlot: string) => void;
+    onEntryMove?: (draggedEntry: TimetableEntry, targetDay: string, targetSlot: string) => void;
+    onEntryDelete?: (entryToDelete: TimetableEntry) => void;
+    onEntryCreate?: (day: string, timeSlot: string) => void;
 }
 
 export const Timetable = ({ data, isEditable, holidays, conflicts, onEntryMove, onEntryDelete, onEntryCreate }: TimetableProps) => {
@@ -203,7 +203,7 @@ export const Timetable = ({ data, isEditable, holidays, conflicts, onEntryMove, 
         const entryData = e.dataTransfer.getData('application/json');
         if (entryData) {
             const draggedEntry = JSON.parse(entryData);
-            onEntryMove(draggedEntry, day, slot);
+            onEntryMove?.(draggedEntry, day, slot);
         }
         setDragOverCell(null);
     };
@@ -258,29 +258,42 @@ export const Timetable = ({ data, isEditable, holidays, conflicts, onEntryMove, 
                                                 <AlertTriangleIcon className="w-4 h-4" />
                                             </div>
                                         )}
-                                        {entries.length > 0 ? entries.map((entry, index) => (
-                                            <div
-                                                key={index}
-                                                draggable={isEditable}
-                                                onDragStart={(e) => isEditable && handleDragStart(e, entry)}
-                                                className={`text-xs h-full flex flex-col justify-between ${isEditable ? 'cursor-move' : ''} ${entries.length > 1 ? 'mb-1 border-b' : ''}`}
-                                            >
-                                                <div>
-                                                    <p className="font-bold text-cu-primary">{entry.subject}</p>
-                                                    <p className="text-gray-600">{entry.lecturer}</p>
-                                                    <p className="text-gray-500 italic">{entry.classroom}</p>
-                                                    <p className="text-xs text-cu-accent font-semibold mt-1">{entry.section}</p>
+                                        {entries.length > 0 ? entries.map((entry, index) => {
+                                            const isLibrary = entry.subject === 'Library';
+                                            const isSports = entry.subject === 'Sports';
+                                            let periodClasses = 'bg-transparent';
+                                            if (isLibrary) {
+                                                periodClasses = 'bg-red-50 text-red-800';
+                                            } else if (isSports) {
+                                                periodClasses = 'bg-green-50 text-green-800';
+                                            }
+                                            const entryContainerClasses = `relative text-xs h-full flex flex-col justify-between p-1 rounded-md transition-all ${isEditable ? 'cursor-move' : ''} ${periodClasses}`;
+                                            const isSpecialPeriod = isLibrary || isSports;
+
+                                            return (
+                                                <div
+                                                    key={index}
+                                                    draggable={isEditable}
+                                                    onDragStart={(e) => isEditable && handleDragStart(e, entry)}
+                                                    className={entryContainerClasses}
+                                                >
+                                                    <div>
+                                                        <p className={`font-bold ${isSpecialPeriod ? '' : 'text-cu-primary'}`}>{entry.subject}</p>
+                                                        <p className="text-gray-600">{entry.lecturer}</p>
+                                                        <p className="text-gray-500 italic">{entry.classroom}</p>
+                                                        <p className="text-xs text-cu-accent font-semibold mt-1">{entry.section}</p>
+                                                    </div>
+                                                    {isEditable && (
+                                                        <button onClick={() => onEntryDelete?.(entry)} className="absolute top-0 right-0 p-1 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <TrashIcon className="w-4 h-4" />
+                                                        </button>
+                                                    )}
                                                 </div>
-                                                {isEditable && (
-                                                    <button onClick={() => onEntryDelete(entry)} className="absolute top-1 right-1 p-1 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <TrashIcon />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        )) : (
+                                            );
+                                        }) : (
                                           isEditable && (
                                             <div className="flex justify-center items-center h-full">
-                                                <button onClick={() => onEntryCreate(day, slot)} className="text-gray-300 hover:text-cu-accent opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => onEntryCreate?.(day, slot)} className="text-gray-300 hover:text-cu-accent opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <PlusIcon />
                                                 </button>
                                             </div>

@@ -1,8 +1,39 @@
 import { UserRole, User, TimetableEntry, Classroom, Notification, Subject, NotificationTarget, Faculty, TimetableObject, TimetableStatus, Conflict } from '../types';
 
-// --- MOCK DATABASE ---
+// --- LOCAL STORAGE PERSISTENCE ---
 
-const users: Record<string, User> = {
+const STORAGE_KEYS = {
+    SUBJECTS: 'scheduler_subjects',
+    CLASSROOMS: 'scheduler_classrooms',
+    FACULTY: 'scheduler_faculty',
+    NOTIFICATIONS: 'scheduler_notifications',
+    TIMETABLES: 'scheduler_timetables',
+    HOLIDAYS: 'scheduler_holidays',
+    INITIALIZED: 'scheduler_initialized_v1'
+};
+
+const getFromStorage = <T>(key: string, defaultValue: T): T => {
+    try {
+        const item = window.localStorage.getItem(key);
+        return item ? JSON.parse(item) : defaultValue;
+    } catch (error) {
+        console.warn(`Error reading localStorage key “${key}”:`, error);
+        return defaultValue;
+    }
+};
+
+const saveToStorage = <T>(key: string, value: T) => {
+    try {
+        window.localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+        console.warn(`Error writing to localStorage key “${key}”:`, error);
+    }
+};
+
+
+// --- MOCK DATABASE (Initial Default Data) ---
+
+const DEFAULT_USERS: Record<string, User> = {
   'admin01': { id: 'admin01', name: 'Dr. Admin', role: UserRole.Admin },
   'lecturer01': { id: 'lecturer01', name: 'Prof. Smith', role: UserRole.Lecturer },
   'lecturer02': { id: 'lecturer02', name: 'Dr. Jones', role: UserRole.Lecturer },
@@ -22,10 +53,12 @@ const users: Record<string, User> = {
   'lecturer16': { id: 'lecturer16', name: 'Dr. Nancy Rodriguez', role: UserRole.Lecturer },
   'lecturer17': { id: 'lecturer17', name: 'Prof. Daniel Lewis', role: UserRole.Lecturer },
   'lecturer18': { id: 'lecturer18', name: 'Dr. Betty Walker', role: UserRole.Lecturer },
+  'lecturer_sports': { id: 'lecturer_sports', name: 'Sports Instructor', role: UserRole.Lecturer },
+  'lecturer_library': { id: 'lecturer_library', name: 'Librarian', role: UserRole.Lecturer },
   'student01': { id: 'student01', name: 'John Doe', role: UserRole.Student, section: 'Section A' },
 };
 
-let subjects: Subject[] = [
+const DEFAULT_SUBJECTS: Subject[] = [
   { id: 'sub01', name: 'Advanced React', code: 'CS401', lecturerId: 'lecturer01' },
   { id: 'sub02', name: 'Python for AI', code: 'AI302', lecturerId: 'lecturer02' },
   { id: 'sub03', name: 'Database Systems', code: 'DB201', lecturerId: 'lecturer02' },
@@ -33,9 +66,26 @@ let subjects: Subject[] = [
   { id: 'sub05', name: 'Network Security', code: 'CS505', lecturerId: 'lecturer01' },
   { id: 'sub06', name: 'Cloud Computing', code: 'IT601', lecturerId: 'lecturer03' },
   { id: 'sub07', name: 'Machine Learning', code: 'AI401', lecturerId: 'lecturer02' },
+  { id: 'sub08', name: 'Thermodynamics', code: 'ME201', lecturerId: 'lecturer04' },
+  { id: 'sub09', name: 'Circuit Theory', code: 'EE201', lecturerId: 'lecturer05' },
+  { id: 'sub10', name: 'Structural Analysis', code: 'CE301', lecturerId: 'lecturer06' },
+  { id: 'sub11', name: 'Biochemistry', code: 'BT202', lecturerId: 'lecturer07' },
+  { id: 'sub12', name: 'Quantum Mechanics', code: 'PH301', lecturerId: 'lecturer08' },
+  { id: 'sub13', name: 'Organic Chemistry', code: 'CH201', lecturerId: 'lecturer09' },
+  { id: 'sub14', name: 'Linear Algebra', code: 'MA201', lecturerId: 'lecturer10' },
+  { id: 'sub15', name: 'Modern Literature', code: 'EN205', lecturerId: 'lecturer11' },
+  { id: 'sub16', name: 'Business Strategy', code: 'MG401', lecturerId: 'lecturer12' },
+  { id: 'sub17', name: 'Microeconomics', code: 'EC101', lecturerId: 'lecturer13' },
+  { id: 'sub18', name: 'World History', code: 'HS101', lecturerId: 'lecturer14' },
+  { id: 'sub19', name: 'Social Theory', code: 'SO201', lecturerId: 'lecturer15' },
+  { id: 'sub20', name: 'Cognitive Psychology', code: 'PS301', lecturerId: 'lecturer16' },
+  { id: 'sub21', name: 'Data Structures', code: 'IT201', lecturerId: 'lecturer17' },
+  { id: 'sub22', name: 'Ecology', code: 'ES201', lecturerId: 'lecturer18' },
+  { id: 'sub_sports', name: 'Sports', code: 'PE101', lecturerId: 'lecturer_sports' },
+  { id: 'sub_library', name: 'Library', code: 'LIB101', lecturerId: 'lecturer_library' },
 ];
 
-let classrooms: Classroom[] = [
+const DEFAULT_CLASSROOMS: Classroom[] = [
   { id: 'cr01', name: 'Room 101', capacity: 50, isAvailable: true },
   { id: 'cr02', name: 'Lab A', capacity: 30, isAvailable: true },
   { id: 'cr03', name: 'Room 203', capacity: 60, isAvailable: false },
@@ -66,7 +116,7 @@ let classrooms: Classroom[] = [
   { id: 'cr28', name: 'Drawing Hall', capacity: 90, isAvailable: true },
 ];
 
-let faculty: Faculty[] = [
+const DEFAULT_FACULTY: Faculty[] = [
     { id: 'lecturer01', name: 'Prof. Smith', department: 'Computer Science', workload: 12, availability: ['Monday', 'Wednesday', 'Friday'] },
     { id: 'lecturer02', name: 'Dr. Jones', department: 'Artificial Intelligence', workload: 15, availability: ['Tuesday', 'Thursday'] },
     { id: 'lecturer03', name: 'Ms. Davis', department: 'Design', workload: 10, availability: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] },
@@ -85,44 +135,60 @@ let faculty: Faculty[] = [
     { id: 'lecturer16', name: 'Dr. Nancy Rodriguez', department: 'Psychology', workload: 15, availability: ['Monday', 'Tuesday', 'Thursday'] },
     { id: 'lecturer17', name: 'Prof. Daniel Lewis', department: 'Information Technology', workload: 16, availability: ['Wednesday', 'Thursday', 'Friday'] },
     { id: 'lecturer18', name: 'Dr. Betty Walker', department: 'Environmental Science', workload: 11, availability: ['Tuesday', 'Wednesday'] },
+    { id: 'lecturer_sports', name: 'Sports Instructor', department: 'Physical Education', workload: 10, availability: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] },
+    { id: 'lecturer_library', name: 'Librarian', department: 'Library', workload: 10, availability: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] },
 ];
 
-let notifications: Notification[] = [
+const DEFAULT_NOTIFICATIONS: Notification[] = [
     { id: 'n01', message: 'Timetable updated for Friday.', timestamp: '2024-07-29T10:00:00Z', isRead: false, target: NotificationTarget.All },
-    { id: 'n02', message: 'CS401 class on Tuesday is cancelled.', timestamp: '2024-07-28T15:30:00Z', isRead: false, target: NotificationTarget.Student },
+    { id: 'n02', message: 'CS401 class on Tuesday is cancelled.', timestamp: '2024-07-28T15:30:00Z', isRead: false, target: NotificationTarget.Student, section: 'Section A' },
     { id: 'n03', message: 'Welcome to the new semester!', timestamp: '2024-07-25T09:00:00Z', isRead: true, target: NotificationTarget.All },
     { id: 'n04', message: 'Faculty meeting at 4 PM today.', timestamp: '2024-07-29T09:00:00Z', isRead: false, target: NotificationTarget.Lecturer },
     { id: 'n05', message: 'Timetable v2 is ready for review.', timestamp: '2024-07-29T11:00:00Z', isRead: false, target: NotificationTarget.Admin },
 ];
 
-let timetables: TimetableObject[] = [
+const DEFAULT_TIMETABLES: TimetableObject[] = [
     {
         id: 'tt01', version: 1, status: 'Approved', createdAt: '2024-07-20T10:00:00Z',
         entries: [
             { day: 'Monday', timeSlot: '09:00-10:00', subject: 'Advanced React', lecturer: 'Prof. Smith', classroom: 'Room 101', section: 'Section A'},
             { day: 'Tuesday', timeSlot: '10:10-11:10', subject: 'Python for AI', lecturer: 'Dr. Jones', classroom: 'Lab A', section: 'Section B'},
             { day: 'Wednesday', timeSlot: '13:10-14:10', subject: 'Database Systems', lecturer: 'Dr. Jones', classroom: 'Room 203', section: 'Section A'},
-        ],
-    },
-    {
-        id: 'tt02', version: 2, status: 'Pending Approval', createdAt: '2024-07-28T14:00:00Z',
-        entries: [
-            { day: 'Monday', timeSlot: '09:00-10:00', subject: 'Advanced React', lecturer: 'Prof. Smith', classroom: 'Room 101', section: 'Section A'},
-            { day: 'Wednesday', timeSlot: '11:10-12:10', subject: 'UI/UX Design', lecturer: 'Ms. Davis', classroom: 'Room 203', section: 'Section B'},
+            { day: 'Wednesday', timeSlot: '11:10-12:10', subject: 'UI/UX Design', lecturer: 'Ms. Davis', classroom: 'Room 102', section: 'Section B'},
             { day: 'Friday', timeSlot: '14:10-15:10', subject: 'Network Security', lecturer: 'Prof. Smith', classroom: 'Hall B', section: 'Section A'},
-        ],
-    },
-    {
-        id: 'tt03', version: 3, status: 'Draft', createdAt: '2024-07-29T11:00:00Z', entries: [
-            { day: 'Monday', timeSlot: '09:00-10:00', subject: 'Advanced React', lecturer: 'Prof. Smith', classroom: 'Room 101', section: 'Section A'},
-            { day: 'Monday', timeSlot: '09:00-10:00', subject: 'Python for AI', lecturer: 'Dr. Jones', classroom: 'Room 101', section: 'Section B'}, // CONFLICT!
-            { day: 'Tuesday', timeSlot: '10:10-11:10', subject: 'UI/UX Design', lecturer: 'Prof. Smith', classroom: 'Lab A', section: 'Section A'},
-            { day: 'Tuesday', timeSlot: '10:10-11:10', subject: 'Database Systems', lecturer: 'Dr. Jones', classroom: 'Room 203', section: 'Section B'},
         ],
     }
 ];
 
-let holidays: string[] = ['Saturday']; // Default holiday
+const DEFAULT_HOLIDAYS: string[] = ['Saturday']; // Default holiday
+
+// --- LIVE DATA (from localStorage or defaults) ---
+const users: Record<string, User> = DEFAULT_USERS; // Users are static for now
+let subjects: Subject[] = getFromStorage(STORAGE_KEYS.SUBJECTS, DEFAULT_SUBJECTS);
+let classrooms: Classroom[] = getFromStorage(STORAGE_KEYS.CLASSROOMS, DEFAULT_CLASSROOMS);
+let faculty: Faculty[] = getFromStorage(STORAGE_KEYS.FACULTY, DEFAULT_FACULTY);
+let notifications: Notification[] = getFromStorage(STORAGE_KEYS.NOTIFICATIONS, DEFAULT_NOTIFICATIONS);
+let timetables: TimetableObject[] = getFromStorage(STORAGE_KEYS.TIMETABLES, DEFAULT_TIMETABLES);
+let holidays: string[] = getFromStorage(STORAGE_KEYS.HOLIDAYS, DEFAULT_HOLIDAYS);
+
+// Store cancelled classes for the current session. This is not persisted.
+let cancelledClasses: TimetableEntry[] = [];
+
+const initializePersistentData = () => {
+    if (!localStorage.getItem(STORAGE_KEYS.INITIALIZED)) {
+        console.log("First time setup: Seeding data into localStorage.");
+        saveToStorage(STORAGE_KEYS.SUBJECTS, DEFAULT_SUBJECTS);
+        saveToStorage(STORAGE_KEYS.CLASSROOMS, DEFAULT_CLASSROOMS);
+        saveToStorage(STORAGE_KEYS.FACULTY, DEFAULT_FACULTY);
+        saveToStorage(STORAGE_KEYS.NOTIFICATIONS, DEFAULT_NOTIFICATIONS);
+        saveToStorage(STORAGE_KEYS.TIMETABLES, DEFAULT_TIMETABLES);
+        saveToStorage(STORAGE_KEYS.HOLIDAYS, DEFAULT_HOLIDAYS);
+        localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
+    }
+};
+
+initializePersistentData();
+
 
 // --- MOCK API FUNCTIONS ---
 
@@ -131,11 +197,13 @@ const delay = <T,>(data: T, duration = 500): Promise<T> =>
 
 export const mockLogin = (role: UserRole): Promise<User> => {
   const user = Object.values(users).find(u => u.role === role);
+  // Reset cancellations on new login
+  cancelledClasses = [];
   return delay(user || users['student01']);
 };
 
 export const getDashboardData = (user: User) => {
-    let upcomingClasses: { subject: string, time: string, room: string, isMyClass?: boolean }[] = [];
+    let upcomingClasses: (TimetableEntry & { isMyClass: boolean })[] = [];
 
     if (user.role !== UserRole.Admin) {
         const approvedTimetable = timetables.find(t => t.status === 'Approved');
@@ -147,7 +215,18 @@ export const getDashboardData = (user: User) => {
         let upcomingClassesRaw = (approvedTimetable?.entries || [])
             .filter(entry => {
                 const endTime = entry.timeSlot.split('-')[1];
-                return entry.day === todayName && endTime > currentTime;
+                const isToday = entry.day === todayName;
+                const isUpcoming = endTime > currentTime;
+
+                // Check if class is cancelled
+                const isCancelled = cancelledClasses.some(cancelled => 
+                    cancelled.day === entry.day &&
+                    cancelled.timeSlot === entry.timeSlot &&
+                    cancelled.section === entry.section &&
+                    cancelled.subject === entry.subject
+                );
+
+                return isToday && isUpcoming && !isCancelled;
             })
             .sort((a, b) => a.timeSlot.localeCompare(b.timeSlot));
         
@@ -158,9 +237,7 @@ export const getDashboardData = (user: User) => {
         }
 
         upcomingClasses = upcomingClassesRaw.map(c => ({
-            subject: c.subject,
-            time: c.timeSlot,
-            room: c.classroom,
+            ...c,
             isMyClass: user.role === UserRole.Lecturer && c.lecturer === user.name,
         }));
     }
@@ -198,52 +275,139 @@ export const getClassrooms = (): Promise<Classroom[]> => delay(classrooms);
 export const getFaculty = (): Promise<Faculty[]> => delay(faculty);
 
 export const createNewDraftTimetable = (constraints: { sections?: string[], minClassesPerDay?: number, maxClassesPerDay?: number }): Promise<TimetableObject> => {
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-  const timeSlots = ['09:00-10:00', '10:10-11:10', '11:10-12:10', '13:10-14:10', '14:10-15:10', '15:20-16:20'];
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    const timeSlots = ['09:00-10:00', '10:10-11:10', '11:10-12:10', '13:10-14:10', '14:10-15:10', '15:20-16:20'];
+    
+    const scheduleDays = days.filter(d => !holidays.includes(d));
+    const sectionsToGenerate = constraints.sections && constraints.sections.length > 0 ? constraints.sections : ['A'];
+    const minClasses = constraints.minClassesPerDay ?? 2;
+    const maxClasses = constraints.maxClassesPerDay ?? 4;
   
-  const scheduleDays = days.filter(d => !holidays.includes(d));
-  const sectionsToGenerate = constraints.sections && constraints.sections.length > 0 ? constraints.sections : ['A'];
-  const minClasses = constraints.minClassesPerDay ?? 2;
-  const maxClasses = constraints.maxClassesPerDay ?? 4;
-
-  const newTimetableEntries: TimetableEntry[] = [];
+    const newTimetableEntries: TimetableEntry[] = [];
+    // Bookings map tracks {lecturer, classroom} usage for a specific {day, timeSlot} across all sections
+    const bookings = new Map<string, { lecturers: Set<string>, classrooms: Set<string> }>();
   
-  sectionsToGenerate.forEach(section => {
-    scheduleDays.forEach(day => {
-        // Determine how many classes to schedule for this section on this day
-        const classCountForDay = Math.floor(Math.random() * (maxClasses - minClasses + 1)) + minClasses;
+    sectionsToGenerate.forEach(section => {
+        const sectionName = `Section ${section}`;
+        const sportsSubject = subjects.find(s => s.name === 'Sports');
+        const librarySubject = subjects.find(s => s.name === 'Library');
         
-        // Shuffle available time slots to randomize class placement
-        const shuffledSlots = [...timeSlots].sort(() => 0.5 - Math.random());
-        const slotsForDay = shuffledSlots.slice(0, classCountForDay);
+        // --- Stage 1: Schedule mandatory periods first to guarantee their placement ---
+        const mandatorySubjects = [
+            ...(sportsSubject ? Array(2).fill(sportsSubject) : []),
+            ...(librarySubject ? Array(2).fill(librarySubject) : [])
+        ];
+        
+        mandatorySubjects.forEach(subject => {
+            let isScheduled = false;
+            // Try to place the mandatory class, shuffling days and slots to randomize
+            const shuffledDays = [...scheduleDays].sort(() => 0.5 - Math.random());
+            for (const day of shuffledDays) {
+                const lecturer = faculty.find(f => f.id === subject.lecturerId);
+                // Check if lecturer is available on this day
+                if (!lecturer || !lecturer.availability.includes(day)) continue;
 
-        slotsForDay.forEach(slot => {
-            const subject = subjects[Math.floor(Math.random() * subjects.length)];
-            const classroom = classrooms[Math.floor(Math.random() * classrooms.length)];
-            const lecturer = Object.values(users).find(u => u.id === subject.lecturerId) || users['lecturer01'];
+                const shuffledSlots = [...timeSlots].sort(() => 0.5 - Math.random());
+                for (const slot of shuffledSlots) {
+                    // Check if section is already busy at this time
+                    const isSectionBusy = newTimetableEntries.some(e => e.day === day && e.timeSlot === slot && e.section === sectionName);
+                    if (isSectionBusy) continue;
 
-            newTimetableEntries.push({
-                day: day, 
-                timeSlot: slot, 
-                subject: subject.name, 
-                lecturer: lecturer.name, 
-                classroom: classroom.name, 
-                section: `Section ${section}`
-            });
+                    const bookingKey = `${day}-${slot}`;
+                    const slotBookings = bookings.get(bookingKey) || { lecturers: new Set(), classrooms: new Set() };
+                    
+                    // Check if lecturer is busy at this time (with another section)
+                    if (slotBookings.lecturers.has(lecturer.name)) continue;
+                    
+                    const classroomName = subject.name === 'Sports' ? 'Ground' : 'Library';
+                    
+                    // Add the class to the timetable
+                    newTimetableEntries.push({
+                        day: day,
+                        timeSlot: slot,
+                        subject: subject.name,
+                        lecturer: lecturer.name,
+                        classroom: classroomName,
+                        section: sectionName
+                    });
+                    
+                    // Update bookings for this slot
+                    slotBookings.lecturers.add(lecturer.name);
+                    bookings.set(bookingKey, slotBookings);
+                    isScheduled = true;
+                    break; // Exit slots loop once scheduled
+                }
+                if (isScheduled) break; // Exit days loop once scheduled
+            }
+        });
+
+        // --- Stage 2: Fill remaining slots with academic subjects ---
+        scheduleDays.forEach(day => {
+            const classesAlreadyScheduled = newTimetableEntries.filter(e => e.day === day && e.section === sectionName).length;
+            const totalClassesForDay = Math.floor(Math.random() * (maxClasses - minClasses + 1)) + minClasses;
+            const academicClassesToSchedule = Math.max(0, totalClassesForDay - classesAlreadyScheduled);
+
+            if (academicClassesToSchedule === 0) return;
+
+            const availableFacultyIds = faculty.filter(f => f.availability.includes(day)).map(f => f.id);
+            const academicSubjects = subjects.filter(s => 
+                availableFacultyIds.includes(s.lecturerId) && s.name !== 'Sports' && s.name !== 'Library'
+            );
+            
+            const shuffledSlots = [...timeSlots].sort(() => 0.5 - Math.random());
+            const availableClassrooms = classrooms.filter(c => c.isAvailable).sort(() => 0.5 - Math.random());
+            let scheduledCount = 0;
+
+            for (const slot of shuffledSlots) {
+                if (scheduledCount >= academicClassesToSchedule) break;
+
+                // Check if section is already busy
+                const isSectionBusy = newTimetableEntries.some(e => e.day === day && e.timeSlot === slot && e.section === sectionName);
+                if (isSectionBusy) continue;
+
+                const bookingKey = `${day}-${slot}`;
+                const slotBookings = bookings.get(bookingKey) || { lecturers: new Set(), classrooms: new Set() };
+                
+                // Try to find an available subject/lecturer/classroom for this slot
+                for (const subject of [...academicSubjects].sort(() => 0.5 - Math.random())) {
+                    const lecturer = Object.values(users).find(u => u.id === subject.lecturerId);
+                    if (!lecturer || slotBookings.lecturers.has(lecturer.name)) continue;
+                    
+                    const classroom = availableClassrooms.find(cr => !slotBookings.classrooms.has(cr.name));
+                    if (classroom) {
+                        newTimetableEntries.push({
+                            day: day,
+                            timeSlot: slot,
+                            subject: subject.name,
+                            lecturer: lecturer.name,
+                            classroom: classroom.name,
+                            section: sectionName
+                        });
+
+                        slotBookings.lecturers.add(lecturer.name);
+                        slotBookings.classrooms.add(classroom.name);
+                        bookings.set(bookingKey, slotBookings);
+                        
+                        scheduledCount++;
+                        break; // Exit subjects loop
+                    }
+                }
+            }
         });
     });
-  });
-
-  const newTimetable: TimetableObject = {
-      id: `tt${Date.now()}`,
-      version: timetables.length + 1,
-      status: 'Draft',
-      createdAt: new Date().toISOString(),
-      entries: newTimetableEntries,
-  };
-  timetables.push(newTimetable);
-  return delay(newTimetable, 2000);
+  
+    const newTimetable: TimetableObject = {
+        id: `tt${Date.now()}`,
+        version: timetables.length + 1,
+        status: 'Draft',
+        createdAt: new Date().toISOString(),
+        entries: newTimetableEntries,
+    };
+    timetables.push(newTimetable);
+    saveToStorage(STORAGE_KEYS.TIMETABLES, timetables);
+    return delay(newTimetable, 2000);
 };
+
 
 export const createDraftFromTimetable = (sourceTimetableId: string): Promise<TimetableObject | null> => {
     const source = timetables.find(t => t.id === sourceTimetableId);
@@ -258,6 +422,7 @@ export const createDraftFromTimetable = (sourceTimetableId: string): Promise<Tim
         notes: `Draft created from Version ${source.version}`,
     };
     timetables.push(newTimetable);
+    saveToStorage(STORAGE_KEYS.TIMETABLES, timetables);
     return delay(newTimetable, 1000);
 };
 
@@ -267,22 +432,33 @@ export const getHolidays = (): Promise<string[]> => delay([...holidays]);
 
 export const setHolidays = (newHolidays: string[]): Promise<boolean> => {
     holidays = newHolidays;
+    saveToStorage(STORAGE_KEYS.HOLIDAYS, holidays);
     return delay(true);
 };
 
-export const getNotifications = (role: UserRole): Promise<Notification[]> => {
-    const userRoleString = role as string;
-    const filtered = notifications.filter(n =>
-        n.target === NotificationTarget.All || n.target === userRoleString
-    );
-    return delay(filtered);
+export const getNotifications = (user: User): Promise<Notification[]> => {
+    const userRoleString = user.role as string;
+    const filtered = notifications.filter(n => {
+        // General role-based filtering
+        const isTargeted = n.target === NotificationTarget.All || n.target === userRoleString;
+        if (!isTargeted) return false;
+
+        // Section-specific filtering for students
+        if (user.role === UserRole.Student && n.section) {
+            return n.section === user.section;
+        }
+
+        return true;
+    });
+    return delay(filtered.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
 };
 
-export const sendNotification = (message: string, target: NotificationTarget): Promise<boolean> => {
+export const sendNotification = (message: string, target: NotificationTarget, section?: string): Promise<boolean> => {
     const newNotif: Notification = {
-        id: `n${Date.now()}`, message, timestamp: new Date().toISOString(), isRead: false, target,
+        id: `n${Date.now()}`, message, timestamp: new Date().toISOString(), isRead: false, target, section
     };
     notifications.unshift(newNotif);
+    saveToStorage(STORAGE_KEYS.NOTIFICATIONS, notifications);
     return delay(true);
 };
 
@@ -290,6 +466,7 @@ export const saveTimetable = (timetableId: string, newEntries: TimetableEntry[])
     const timetable = timetables.find(t => t.id === timetableId);
     if (timetable && (timetable.status === 'Draft' || timetable.status === 'Rejected')) {
         timetable.entries = newEntries;
+        saveToStorage(STORAGE_KEYS.TIMETABLES, timetables);
         return delay(true, 300);
     }
     return delay(false, 300);
@@ -299,6 +476,7 @@ export const submitForReview = (timetableId: string): Promise<TimetableObject | 
     const timetable = timetables.find(t => t.id === timetableId);
     if (timetable) {
         timetable.status = 'Pending Approval';
+        saveToStorage(STORAGE_KEYS.TIMETABLES, timetables);
         sendNotification(`Timetable v${timetable.version} has been submitted for your review.`, NotificationTarget.Admin);
     }
     return delay( timetable);
@@ -314,6 +492,7 @@ export const approveTimetable = (timetableId: string): Promise<TimetableObject |
     const timetable = timetables.find(t => t.id === timetableId);
     if (timetable) {
         timetable.status = 'Approved';
+        saveToStorage(STORAGE_KEYS.TIMETABLES, timetables);
         sendNotification(`Timetable v${timetable.version} has been approved and is now active.`, NotificationTarget.All);
     }
     return delay(timetable);
@@ -324,6 +503,7 @@ export const rejectTimetable = (timetableId: string, notes: string): Promise<Tim
     if (timetable) {
         timetable.status = 'Rejected';
         timetable.notes = notes;
+        saveToStorage(STORAGE_KEYS.TIMETABLES, timetables);
         sendNotification(`Timetable v${timetable.version} was rejected. Reason: ${notes}`, NotificationTarget.Admin);
     }
     return delay(timetable);
@@ -332,30 +512,42 @@ export const rejectTimetable = (timetableId: string, notes: string): Promise<Tim
 export const deleteTimetable = (timetableId: string): Promise<boolean> => {
     const initialLength = timetables.length;
     timetables = timetables.filter(t => t.id !== timetableId);
+    saveToStorage(STORAGE_KEYS.TIMETABLES, timetables);
     return delay(timetables.length < initialLength);
 };
 
 export const markNotificationAsRead = (notificationId: string): Promise<Notification[]> => {
     const notification = notifications.find(n => n.id === notificationId);
     if (notification) notification.isRead = true;
+    saveToStorage(STORAGE_KEYS.NOTIFICATIONS, notifications);
     return delay([...notifications]);
 };
 
 export const addSubject = (newSubject: Omit<Subject, 'id'>): Promise<Subject[]> => {
     const subject: Subject = { ...newSubject, id: `sub${Date.now()}` };
     subjects.push(subject);
+    saveToStorage(STORAGE_KEYS.SUBJECTS, subjects);
     return delay([...subjects]);
 };
 
 export const deleteSubject = (subjectId: string): Promise<Subject[]> => {
     subjects = subjects.filter(s => s.id !== subjectId);
+    saveToStorage(STORAGE_KEYS.SUBJECTS, subjects);
     return delay([...subjects]);
+};
+
+export const cancelClass = (classToCancel: TimetableEntry): Promise<boolean> => {
+    cancelledClasses.push(classToCancel);
+    const message = `CLASS CANCELLED: The ${classToCancel.subject} class (${classToCancel.section}) with ${classToCancel.lecturer} at ${classToCancel.timeSlot} in ${classToCancel.classroom} has been cancelled.`;
+    sendNotification(message, NotificationTarget.Student, classToCancel.section);
+    return delay(true);
 };
 
 // --- New CRUD for Management ---
 export const addClassroom = (classroom: Omit<Classroom, 'id' | 'isAvailable'>): Promise<Classroom[]> => {
     const newClassroom: Classroom = { ...classroom, id: `cr${Date.now()}`, isAvailable: true };
     classrooms.push(newClassroom);
+    saveToStorage(STORAGE_KEYS.CLASSROOMS, classrooms);
     return delay([...classrooms]);
 };
 
@@ -363,31 +555,36 @@ export const updateClassroom = (id: string, updatedData: Partial<Omit<Classroom,
     const classroomIndex = classrooms.findIndex(c => c.id === id);
     if (classroomIndex > -1) {
         classrooms[classroomIndex] = { ...classrooms[classroomIndex], ...updatedData };
+        saveToStorage(STORAGE_KEYS.CLASSROOMS, classrooms);
     }
     return delay([...classrooms]);
 };
 
 export const deleteClassroom = (id: string): Promise<Classroom[]> => {
     classrooms = classrooms.filter(c => c.id !== id);
+    saveToStorage(STORAGE_KEYS.CLASSROOMS, classrooms);
     return delay([...classrooms]);
 };
 
 export const addFacultyMember = (facultyMember: Omit<Faculty, 'id'>): Promise<Faculty[]> => {
     const newFaculty: Faculty = { ...facultyMember, id: `lecturer${Date.now()}` };
     faculty.push(newFaculty);
+    saveToStorage(STORAGE_KEYS.FACULTY, faculty);
     return delay([...faculty]);
 }
 
-export const updateFacultyMember = (id: string, updatedData: Partial<Omit<Faculty, 'id' | 'availability'>>): Promise<Faculty[]> => {
+export const updateFacultyMember = (id: string, updatedData: Partial<Omit<Faculty, 'id'>>): Promise<Faculty[]> => {
     const facultyIndex = faculty.findIndex(f => f.id === id);
     if (facultyIndex > -1) {
         faculty[facultyIndex] = { ...faculty[facultyIndex], ...updatedData };
+        saveToStorage(STORAGE_KEYS.FACULTY, faculty);
     }
     return delay([...faculty]);
 };
 
 export const deleteFacultyMember = (id: string): Promise<Faculty[]> => {
     faculty = faculty.filter(f => f.id !== id);
+    saveToStorage(STORAGE_KEYS.FACULTY, faculty);
     return delay([...faculty]);
 }
 
@@ -466,6 +663,13 @@ export const autoArrangeTimetable = (timetableId: string): Promise<TimetableObje
         let moved = false;
         for (const day of days) {
             if (holidays.includes(day)) continue;
+            
+            // Check faculty availability for the new day
+            const lecturerFaculty = faculty.find(f => f.name === entryToMove.lecturer);
+            if (!lecturerFaculty || !lecturerFaculty.availability.includes(day)) {
+                continue; // Lecturer is not available on this day
+            }
+
             for (const slot of timeSlots) {
                 // More robust check: Is this new slot free for this section, this lecturer, AND this classroom?
                 const isLecturerBusy = timetable.entries.some(e => e.day === day && e.timeSlot === slot && e.lecturer === entryToMove.lecturer);
@@ -489,6 +693,7 @@ export const autoArrangeTimetable = (timetableId: string): Promise<TimetableObje
             timetable.entries.push(entryToMove);
         }
     });
-
+    
+    saveToStorage(STORAGE_KEYS.TIMETABLES, timetables);
     return delay(JSON.parse(JSON.stringify(timetable)), 1500);
 };

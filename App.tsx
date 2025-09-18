@@ -1,7 +1,7 @@
 
 import React, { useState, createContext, useContext, ReactNode, useEffect, useMemo } from 'react';
 import { User, UserRole, TimetableEntry, Classroom, Notification, Subject, NotificationTarget, TimetableObject, Faculty, Conflict } from './types';
-import { mockLogin, getDashboardData, createNewDraftTimetable, getTimetables, getClassrooms, getNotifications, getSubjects, saveTimetable, markNotificationAsRead, addSubject, deleteSubject, getHolidays, setHolidays, sendNotification, submitForReview, approveTimetable, rejectTimetable, getFaculty, deleteTimetable, addClassroom, deleteClassroom, addFacultyMember, deleteFacultyMember, checkForConflicts, updateClassroom, updateFacultyMember, createDraftFromTimetable, autoArrangeTimetable } from './services/mockApi';
+import { mockLogin, getDashboardData, createNewDraftTimetable, getTimetables, getClassrooms, getNotifications, getSubjects, saveTimetable, markNotificationAsRead, addSubject, deleteSubject, getHolidays, setHolidays as apiSetHolidays, sendNotification, submitForReview, approveTimetable, rejectTimetable, getFaculty, deleteTimetable, addClassroom, deleteClassroom, addFacultyMember, deleteFacultyMember, checkForConflicts, updateClassroom, updateFacultyMember, createDraftFromTimetable, autoArrangeTimetable, cancelClass } from './services/mockApi';
 import { Header, Footer, Sidebar, Card, Button, Timetable, Modal, TrashIcon, CheckIcon, XIcon, DownloadIcon, PlusIcon, EditIcon, AlertTriangleIcon, SparklesIcon, EyeIcon, EyeOffIcon } from './components/ui';
 
 declare const XLSX: any;
@@ -121,7 +121,7 @@ const LoginPage = ({ onNavigate }: { onNavigate: (page: string) => void }) => {
                                 id="role-select"
                                 value={selectedRole}
                                 onChange={(e) => setSelectedRole(e.target.value as UserRole)}
-                                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-cu-accent focus:border-cu-accent sm:text-sm rounded-md"
+                                className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-cu-dark text-cu-light border border-gray-600 focus:outline-none focus:ring-cu-accent focus:border-cu-accent sm:text-sm rounded-md"
                             >
                                 <option value={UserRole.Student}>Student</option>
                                 <option value={UserRole.Lecturer}>Lecturer</option>
@@ -136,7 +136,7 @@ const LoginPage = ({ onNavigate }: { onNavigate: (page: string) => void }) => {
                                 value={userId}
                                 onChange={(e) => setUserId(e.target.value.replace(/\D/g, ''))}
                                 maxLength={12}
-                                className={`mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none sm:text-sm rounded-md ${errors.userId ? 'border-red-500 ring-red-500' : 'focus:ring-cu-accent focus:border-cu-accent'}`}
+                                className={`mt-1 block w-full pl-3 pr-10 py-2 text-base bg-transparent text-cu-light border border-gray-600 placeholder:text-gray-400 focus:outline-none sm:text-sm rounded-md [box-shadow:0_0_0_1000px_#212121_inset] ${errors.userId ? 'border-red-500 ring-red-500' : 'focus:ring-cu-accent focus:border-cu-accent'}`}
                                 placeholder="Enter your 12-digit User ID"
                             />
                             {errors.userId && <p className="mt-1 text-xs text-red-600">{errors.userId}</p>}
@@ -150,7 +150,7 @@ const LoginPage = ({ onNavigate }: { onNavigate: (page: string) => void }) => {
                                     type={showPassword ? 'text' : 'password'}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className={`mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none sm:text-sm rounded-md ${errors.password ? 'border-red-500 ring-red-500' : 'focus:ring-cu-accent focus:border-cu-accent'}`}
+                                    className={`mt-1 block w-full pl-3 pr-10 py-2 text-base bg-transparent text-cu-light border border-gray-600 placeholder:text-gray-400 focus:outline-none sm:text-sm rounded-md [box-shadow:0_0_0_1000px_#212121_inset] ${errors.password ? 'border-red-500 ring-red-500' : 'focus:ring-cu-accent focus:border-cu-accent'}`}
                                     placeholder="Enter your password"
                                 />
                                 <button
@@ -356,11 +356,16 @@ const DashboardPage = ({ onNavigate }: { onNavigate: (page: string) => void }) =
     const [data, setData] = useState<any | null>(null);
     const [isSubjectsModalOpen, setIsSubjectsModalOpen] = useState(false);
     const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+    const [classToCancel, setClassToCancel] = useState<(TimetableEntry & { isMyClass: boolean }) | null>(null);
 
-    useEffect(() => {
+    const fetchDashboardData = () => {
         if (user) {
             getDashboardData(user).then(setData);
         }
+    };
+    
+    useEffect(() => {
+        fetchDashboardData();
     }, [user, isSubjectsModalOpen]);
 
     if (!user) return null;
@@ -375,6 +380,14 @@ const DashboardPage = ({ onNavigate }: { onNavigate: (page: string) => void }) =
         }
     };
 
+    const handleCancelClass = async () => {
+        if (classToCancel) {
+            await cancelClass(classToCancel);
+            fetchDashboardData(); // Refresh dashboard data
+            setClassToCancel(null); // Close modal
+        }
+    };
+
     const currentDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
     if (!data) return <div>Loading...</div>;
@@ -385,6 +398,8 @@ const DashboardPage = ({ onNavigate }: { onNavigate: (page: string) => void }) =
         Draft: 'bg-blue-100 text-blue-800',
         Rejected: 'bg-red-100 text-red-800',
     };
+
+    type UpcomingClass = TimetableEntry & { isMyClass: boolean };
 
     return (
         <div>
@@ -405,15 +420,27 @@ const DashboardPage = ({ onNavigate }: { onNavigate: (page: string) => void }) =
                     <Card title={user.role === UserRole.Lecturer ? "Today's Upcoming Classes" : "Upcoming Classes (Approved Schedule)"} className="lg:col-span-2">
                         <ul className="space-y-4">
                             {data.upcomingClasses.length > 0 ? (
-                                data.upcomingClasses.map((c: any, i: number) => (
-                                    <li key={i} className={`flex justify-between items-center p-2 rounded-md transition-colors ${c.isMyClass ? 'bg-blue-50 border-l-4 border-cu-accent' : 'hover:bg-gray-100'}`}>
+                                data.upcomingClasses.map((c: UpcomingClass, i: number) => (
+                                    <li key={i} className={`flex justify-between items-center p-3 rounded-md transition-colors ${c.isMyClass ? 'bg-blue-50 border-l-4 border-cu-accent' : 'hover:bg-gray-100'}`}>
                                         <div>
                                             <p className="font-semibold text-cu-primary">{c.subject}</p>
-                                            <p className="text-sm text-gray-500">{c.room}</p>
+                                            <p className="text-sm text-gray-500">{c.classroom}</p>
                                         </div>
-                                        <div className="text-right">
-                                            <span className="text-gray-700 font-medium">{c.time}</span>
-                                            {c.isMyClass && <span className="text-xs font-bold text-cu-accent block mt-1">MY CLASS</span>}
+                                        <div className="flex items-center gap-3">
+                                            <div className="text-right">
+                                                <span className="text-gray-700 font-medium">{c.timeSlot}</span>
+                                                {c.isMyClass && <span className="text-xs font-bold text-cu-accent block mt-1">MY CLASS</span>}
+                                            </div>
+                                            {user.role === UserRole.Lecturer && i === 0 && (
+                                                <Button
+                                                    variant="danger"
+                                                    onClick={() => setClassToCancel(c)}
+                                                    className="px-2 py-1 text-xs"
+                                                    title="Cancel Next Class"
+                                                >
+                                                    <XIcon className="w-4 h-4" /> Cancel
+                                                </Button>
+                                            )}
                                         </div>
                                     </li>
                                 ))
@@ -443,6 +470,20 @@ const DashboardPage = ({ onNavigate }: { onNavigate: (page: string) => void }) =
             </div>
             {user.role === UserRole.Lecturer && <ManageSubjectsModal isOpen={isSubjectsModalOpen} onClose={() => setIsSubjectsModalOpen(false)} user={user} />}
             {(user.role === UserRole.Admin || user.role === UserRole.Lecturer) && <SendNotificationModal isOpen={isNotificationModalOpen} onClose={() => setIsNotificationModalOpen(false)} user={user} />}
+            <Modal isOpen={!!classToCancel} onClose={() => setClassToCancel(null)} title="Confirm Class Cancellation">
+                <p>Are you sure you want to cancel the following class? Students in this section will be notified.</p>
+                {classToCancel && (
+                    <div className="mt-4 p-3 bg-gray-100 rounded-lg text-center">
+                        <p className="font-bold text-cu-primary text-lg">{classToCancel.subject}</p>
+                        <p className="text-gray-600">{classToCancel.timeSlot} for {classToCancel.section}</p>
+                        <p className="text-sm text-gray-500">in {classToCancel.classroom}</p>
+                    </div>
+                )}
+                <div className="flex justify-end gap-2 mt-6">
+                    <Button variant="secondary" onClick={() => setClassToCancel(null)}>Back</Button>
+                    <Button variant="danger" onClick={handleCancelClass}>Confirm Cancellation</Button>
+                </div>
+            </Modal>
         </div>
     );
 };
@@ -517,63 +558,6 @@ const CreateTimetableModal = ({ isOpen, onClose, onCreate }: {
     );
 };
 
-const EntryEditModal = ({ isOpen, onClose, onSave, allSubjects, allClassrooms, availableSections, entryData }: {
-    isOpen: boolean,
-    onClose: () => void,
-    onSave: (entry: Omit<TimetableEntry, 'lecturer' | 'day' | 'timeSlot'>) => void,
-    allSubjects: Subject[],
-    allClassrooms: Classroom[],
-    availableSections: string[],
-    entryData: { day: string, timeSlot: string }
-}) => {
-    const [subject, setSubject] = useState('');
-    const [classroom, setClassroom] = useState('');
-    const [section, setSection] = useState('');
-
-    useEffect(() => {
-        if (isOpen) {
-            setSubject(allSubjects[0]?.name || '');
-            setClassroom(allClassrooms.find(c => c.isAvailable)?.name || '');
-            setSection(availableSections[0] || '');
-        }
-    }, [isOpen, allSubjects, allClassrooms, availableSections]);
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onSave({ subject, classroom, section });
-    };
-
-    return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Add Class on ${entryData.day} at ${entryData.timeSlot}`}>
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700">Subject</label>
-                    <select value={subject} onChange={e => setSubject(e.target.value)} className="mt-1 block w-full p-2 border rounded-md">
-                        {allSubjects.map(s => <option key={s.id} value={s.name}>{s.name} ({s.code})</option>)}
-                    </select>
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700">Classroom</label>
-                    <select value={classroom} onChange={e => setClassroom(e.target.value)} className="mt-1 block w-full p-2 border rounded-md">
-                        {allClassrooms.filter(c => c.isAvailable).map(c => <option key={c.id} value={c.name}>{c.name} (Capacity: {c.capacity})</option>)}
-                    </select>
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700">Section</label>
-                    <select value={section} onChange={e => setSection(e.target.value)} className="mt-1 block w-full p-2 border rounded-md">
-                        {availableSections.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                </div>
-                <div className="flex justify-end gap-2">
-                    <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
-                    <Button type="submit">Add Class</Button>
-                </div>
-            </form>
-        </Modal>
-    );
-};
-
-
 // --- Scheduler Page ---
 const SchedulerPage = () => {
     const { user } = useAuth();
@@ -581,27 +565,23 @@ const SchedulerPage = () => {
     const [timetables, setTimetables] = useState<TimetableObject[]>([]);
     const [selectedTimetable, setSelectedTimetable] = useState<TimetableObject | null>(null);
     const [holidays, setHolidays] = useState<string[]>([]);
+    const [newHoliday, setNewHoliday] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [conflicts, setConflicts] = useState<Conflict[]>([]);
     const [isCheckingConflicts, setIsCheckingConflicts] = useState(false);
-    const [isAutoArranging, setIsAutoArranging] = useState(false);
     const [conflictCheckRun, setConflictCheckRun] = useState(false);
     
-    // View and Edit states
-    const [isEditMode, setIsEditMode] = useState(false);
+    // View states
     const [selectedSection, setSelectedSection] = useState<string>('All');
     const [viewMode, setViewMode] = useState<'student' | 'lecturer'>('student'); // 'student' or 'lecturer' for admin view
     const [selectedLecturer, setSelectedLecturer] = useState<string>('');
 
     // Modal states
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-    const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
     const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [isConfirmEditModalOpen, setIsConfirmEditModalOpen] = useState(false);
     const [timetableToDelete, setTimetableToDelete] = useState<TimetableObject | null>(null);
     const [rejectionNotes, setRejectionNotes] = useState('');
-    const [entryToEdit, setEntryToEdit] = useState<{ day: string, timeSlot: string } | null>(null);
     
     // Data for modals
     const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
@@ -652,20 +632,7 @@ const SchedulerPage = () => {
     useEffect(() => {
         setConflicts([]);
         setConflictCheckRun(false);
-
-        // Automatically enable edit mode for lecturers/admins on draft/rejected timetables
-        const canAutoEdit = user && selectedTimetable &&
-                            (user.role === UserRole.Lecturer || user.role === UserRole.Admin) &&
-                            (selectedTimetable.status === 'Draft' || selectedTimetable.status === 'Rejected');
-        
-        setIsEditMode(!!canAutoEdit);
-    }, [selectedTimetable, user]);
-
-    const canInitiateEdit = useMemo(() => {
-        if (!user || !selectedTimetable) return false;
-        // Admins and Lecturers can initiate edits on any timetable.
-        return user.role === UserRole.Admin || user.role === UserRole.Lecturer;
-    }, [user, selectedTimetable]);
+    }, [selectedTimetable]);
 
     const sections = useMemo(() => {
         const uniqueSections = [...new Set(timetables.flatMap(t => t.entries.map(e => e.section)))];
@@ -689,7 +656,17 @@ const SchedulerPage = () => {
         
         if (user?.role === UserRole.Admin && viewMode === 'lecturer') {
             if (!selectedLecturer) return [];
-            return selectedTimetable.entries.filter(e => e.lecturer === selectedLecturer);
+            // Find all sections taught by the selected lecturer
+            const lecturerSections = new Set(
+                selectedTimetable.entries
+                    .filter(e => e.lecturer === selectedLecturer)
+                    .map(e => e.section)
+            );
+            // Show the lecturer's classes AND any non-academic classes for those sections
+            return selectedTimetable.entries.filter(e =>
+                e.lecturer === selectedLecturer ||
+                ((e.subject === 'Library' || e.subject === 'Sports') && lecturerSections.has(e.section))
+            );
         }
 
         return selectedTimetable.entries.filter(e => e.section === selectedSection);
@@ -710,71 +687,6 @@ const SchedulerPage = () => {
         setSelectedTimetable(newDraft);
         setIsLoading(false);
     };
-
-    const handleCreateDraftFromCurrent = async () => {
-        if (!selectedTimetable) return;
-        setIsLoading(true);
-        const newDraft = await createDraftFromTimetable(selectedTimetable.id);
-        if (newDraft) {
-            setTimetables([newDraft, ...timetables].sort((a,b) => b.version - a.version));
-            setSelectedTimetable(newDraft);
-            // The useEffect will automatically set isEditMode to true for the new draft.
-        }
-        setIsLoading(false);
-    };
-
-    const handleEdit = () => {
-        if (selectedTimetable?.status === 'Approved' || selectedTimetable?.status === 'Pending Approval') {
-            setIsConfirmEditModalOpen(true);
-        } else {
-            // This is now handled by the useEffect, but we keep it for any edge cases
-            setIsEditMode(true);
-        }
-    };
-
-    const handleSave = async () => {
-        if (!selectedTimetable) return;
-        setIsLoading(true);
-        await saveTimetable(selectedTimetable.id, selectedTimetable.entries);
-        setIsLoading(false);
-        // Stay in edit mode after saving
-    };
-
-    const handleCancelEdit = async () => {
-        if(!selectedTimetable) return;
-        setIsLoading(true);
-        const originalTimetables = await getTimetables();
-        // This will discard local changes and re-trigger the useEffect to set the correct edit mode
-        setSelectedTimetable(originalTimetables.find(t => t.id === selectedTimetable.id) || null);
-        setIsLoading(false);
-    };
-
-    const handleEntryMove = (draggedEntry: TimetableEntry, targetDay: string, targetSlot: string) => {
-        if (!selectedTimetable) return;
-        const newEntries = selectedTimetable.entries.map(e => 
-            (e.day === draggedEntry.day && e.timeSlot === draggedEntry.timeSlot && e.section === draggedEntry.section && e.subject === draggedEntry.subject) 
-            ? { ...e, day: targetDay, timeSlot: targetSlot } 
-            : e
-        );
-        setSelectedTimetable({ ...selectedTimetable, entries: newEntries });
-    };
-
-    const handleEntryDelete = (entryToDelete: TimetableEntry) => {
-        if (!selectedTimetable) return;
-        const newEntries = selectedTimetable.entries.filter(e => e !== entryToDelete);
-        setSelectedTimetable({ ...selectedTimetable, entries: newEntries });
-    };
-    
-    const handleCreateEntry = (newEntry: Omit<TimetableEntry, 'lecturer' | 'day' | 'timeSlot'>) => {
-        if (!selectedTimetable || !entryToEdit) return;
-        const subject = allSubjects.find(s => s.name === newEntry.subject);
-        const lecturer = subject ? allFaculty.find(f => f.id === subject.lecturerId) : undefined;
-        if (!lecturer) return; // Should not happen
-        
-        const finalEntry: TimetableEntry = { ...newEntry, lecturer: lecturer.name, ...entryToEdit };
-        setSelectedTimetable({ ...selectedTimetable, entries: [...selectedTimetable.entries, finalEntry]});
-        setIsEntryModalOpen(false);
-    };
     
     const handleRunConflictCheck = async () => {
         if (!selectedTimetable) return;
@@ -783,20 +695,6 @@ const SchedulerPage = () => {
         const foundConflicts = await checkForConflicts(selectedTimetable.id);
         setConflicts(foundConflicts);
         setIsCheckingConflicts(false);
-    };
-
-    const handleAutoArrange = async () => {
-        if (!selectedTimetable) return;
-        setIsAutoArranging(true);
-        const rearrangedTimetable = await autoArrangeTimetable(selectedTimetable.id);
-        if (rearrangedTimetable) {
-            setTimetables(timetables.map(t => t.id === rearrangedTimetable.id ? rearrangedTimetable : t));
-            setSelectedTimetable(rearrangedTimetable);
-            // Re-run conflict check to confirm resolution
-            const foundConflicts = await checkForConflicts(rearrangedTimetable.id);
-            setConflicts(foundConflicts);
-        }
-        setIsAutoArranging(false);
     };
 
     const handleExportToExcel = () => {
@@ -837,7 +735,10 @@ const SchedulerPage = () => {
         }
     }
 
-    const handleSubmitForReview = async () => updateTimetableStatus(await submitForReview(selectedTimetable!.id));
+    const handleSubmitForReview = async () => {
+        if (!selectedTimetable) return;
+        updateTimetableStatus(await submitForReview(selectedTimetable!.id));
+    };
     const handleApprove = async () => updateTimetableStatus(await approveTimetable(selectedTimetable!.id));
     const handleReject = async () => {
         updateTimetableStatus(await rejectTimetable(selectedTimetable!.id, rejectionNotes));
@@ -855,6 +756,23 @@ const SchedulerPage = () => {
         setIsDeleteModalOpen(false);
         setTimetableToDelete(null);
     }
+
+    const handleAddHoliday = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const trimmedDay = newHoliday.trim();
+        if (trimmedDay && !holidays.includes(trimmedDay)) {
+            const newHolidaysList = [...holidays, trimmedDay].sort();
+            setHolidays(newHolidaysList); // Optimistic update
+            setNewHoliday('');
+            await apiSetHolidays(newHolidaysList); // Persist
+        }
+    };
+
+    const handleRemoveHoliday = async (dayToRemove: string) => {
+        const newHolidaysList = holidays.filter(day => day !== dayToRemove);
+        setHolidays(newHolidaysList); // Optimistic update
+        await apiSetHolidays(newHolidaysList); // Persist
+    };
     
     const statusPillClasses: {[key: string]: string} = {
         'Draft': 'bg-blue-100 text-blue-800',
@@ -865,167 +783,188 @@ const SchedulerPage = () => {
 
     if (isLoading) return <div className="text-center p-10">Loading Scheduler...</div>;
     if (!user) return null;
+    
+    const canManageTimetable = user && (user.role === UserRole.Admin || user.role === UserRole.Lecturer);
 
     return (
         <div className="space-y-6">
-            <Card title="Timetable Scheduler & Manager">
-                {user.role === UserRole.Admin && (
-                    <div className="border-b border-gray-200 mb-4">
-                        <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                            <button
-                                type="button"
-                                onClick={() => setViewMode('student')}
-                                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
-                                    viewMode === 'student'
-                                    ? 'border-cu-primary text-cu-primary'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                }`}
-                            >
-                                Student View
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setViewMode('lecturer')}
-                                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
-                                    viewMode === 'lecturer'
-                                    ? 'border-cu-primary text-cu-primary'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                }`}
-                            >
-                                Lecturer View
-                            </button>
-                        </nav>
-                    </div>
-                )}
-
-                <div className={`grid grid-cols-1 md:grid-cols-2 ${user.role === UserRole.Student ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-4 items-end`}>
-                    {/* Timetable selection */}
-                    {user.role !== UserRole.Student && (
-                        <div className="flex flex-col">
-                            <label className="text-sm font-medium text-gray-700">Select Timetable Version</label>
-                            <select 
-                                value={selectedTimetable?.id || ''} 
-                                onChange={e => handleTimetableChange(e.target.value)}
-                                className="p-2 border rounded-md"
-                                disabled={timetables.length === 0}
-                            >
-                                {timetables.map(t => <option key={t.id} value={t.id}>Version {t.version} ({t.status})</option>)}
-                            </select>
-                        </div>
-                    )}
-
-                    {/* Section / Lecturer selection */}
-                    <div className="flex flex-col lg:col-span-2">
-                        {user.role === UserRole.Admin && viewMode === 'lecturer' ? (
-                            <>
-                                <label className="text-sm font-medium text-gray-700">Select Lecturer</label>
-                                <select value={selectedLecturer} onChange={e => setSelectedLecturer(e.target.value)} className="p-2 border rounded-md">
-                                    {allFaculty.map(f => <option key={f.id} value={f.name}>{f.name}</option>)}
-                                </select>
-                            </>
-                        ) : (
-                            <>
-                                <label className="text-sm font-medium text-gray-700">Select Section</label>
-                                <select value={selectedSection} onChange={e => setSelectedSection(e.target.value)} className="p-2 border rounded-md">
-                                    {sections.map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                            </>
-                        )}
-                    </div>
-                    
-                    {selectedTimetable && (
-                        <div className="flex justify-end items-center">
-                            <span className={`px-3 py-2 text-sm font-semibold rounded-full ${statusPillClasses[selectedTimetable.status]}`}>
-                                {selectedTimetable.status}
-                            </span>
-                        </div>
-                    )}
-                </div>
-                {selectedTimetable?.notes && <p className="text-sm text-red-600 mt-2">Note: {selectedTimetable.notes}</p>}
-                
-                 <div className="flex flex-wrap items-start justify-between gap-2 mt-4 border-t pt-4">
-                    {/* Left-aligned actions */}
-                    <div className="flex flex-wrap gap-2">
-                        {isEditMode ? (
-                            <>
-                                <Button variant="success" onClick={handleSave}><CheckIcon /> Save Changes</Button>
-                                <Button variant="secondary" onClick={handleCancelEdit}><XIcon /> Cancel</Button>
-                            </>
-                        ) : (
-                            canInitiateEdit && <Button onClick={handleEdit}><EditIcon /> Edit</Button>
-                        )}
-                        
-                        {selectedTimetable?.status === 'Draft' && canInitiateEdit && <Button onClick={handleSubmitForReview}>Submit for Review</Button>}
-                        {selectedTimetable?.status === 'Pending Approval' && user.role === UserRole.Admin && (
-                            <>
-                                <Button variant="success" onClick={handleApprove}><CheckIcon /> Approve</Button>
-                                <Button variant="danger" onClick={() => setIsRejectModalOpen(true)}><XIcon/> Reject</Button>
-                            </>
+             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                    <Card title="Timetable Scheduler & Manager">
+                        {user.role === UserRole.Admin && (
+                            <div className="border-b border-gray-200 mb-4">
+                                <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                                    <button
+                                        type="button"
+                                        onClick={() => setViewMode('student')}
+                                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+                                            viewMode === 'student'
+                                            ? 'border-cu-primary text-cu-primary'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        Student View
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setViewMode('lecturer')}
+                                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+                                            viewMode === 'lecturer'
+                                            ? 'border-cu-primary text-cu-primary'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        Lecturer View
+                                    </button>
+                                </nav>
+                            </div>
                         )}
 
-                        {user.role !== UserRole.Student && (
-                            <Button variant="secondary" onClick={handleRunConflictCheck} disabled={isCheckingConflicts}>
-                                <AlertTriangleIcon/> {isCheckingConflicts ? 'Checking...' : 'Check Conflicts'}
-                            </Button>
-                        )}
-                    </div>
+                        <div className={`grid grid-cols-1 md:grid-cols-2 ${user.role === UserRole.Student ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-4 items-end`}>
+                            {/* Timetable selection */}
+                            {user.role !== UserRole.Student && (
+                                <div className="flex flex-col">
+                                    <label className="text-sm font-medium text-gray-700">Select Timetable Version</label>
+                                    <select 
+                                        value={selectedTimetable?.id || ''} 
+                                        onChange={e => handleTimetableChange(e.target.value)}
+                                        className="p-2 border rounded-md"
+                                        disabled={timetables.length === 0}
+                                    >
+                                        {timetables.map(t => <option key={t.id} value={t.id}>Version {t.version} ({t.status})</option>)}
+                                    </select>
+                                </div>
+                            )}
 
-                    {/* Right-aligned actions */}
-                    <div className="flex flex-wrap gap-2">
-                         <Button 
-                            variant="secondary" 
-                            onClick={handleExportToExcel} 
-                            disabled={!selectedTimetable || filteredEntries.length === 0}
-                         >
-                            <DownloadIcon /> Export as Excel
-                        </Button>
-                        {user.role !== UserRole.Student && (
-                             <Button onClick={() => setIsCreateModalOpen(true)}><PlusIcon/> Generate Timetable</Button>
-                        )}
-                         {user.role !== UserRole.Student && selectedTimetable && (
-                            <Button onClick={handleCreateDraftFromCurrent}>Copy to New Draft</Button>
-                        )}
-                         {user.role !== UserRole.Student && selectedTimetable && (selectedTimetable.status === 'Draft' || selectedTimetable.status === 'Rejected') && canInitiateEdit && (
-                           <Button variant="danger" onClick={() => { setTimetableToDelete(selectedTimetable); setIsDeleteModalOpen(true); }}><TrashIcon /> Delete</Button>
-                        )}
-                    </div>
-                </div>
-
-                {conflictCheckRun && (
-                    <div className={`mt-4 p-4 rounded-md ${conflicts.length > 0 ? 'bg-red-50' : 'bg-green-50'}`}>
-                         <div className="flex justify-between items-start">
-                            <div>
-                                <h4 className={`font-bold ${conflicts.length > 0 ? 'text-red-800' : 'text-green-800'}`}>
-                                    {isCheckingConflicts ? 'Checking for conflicts...' : (conflicts.length > 0 ? `${conflicts.length} conflict(s) found:` : 'No conflicts found.')}
-                                </h4>
-                                {conflicts.length > 0 && !isCheckingConflicts && (
-                                    <ul className="list-disc list-inside text-sm text-red-700 mt-2 space-y-1">
-                                        {conflicts.slice(0, 5).map((c, i) => (
-                                            <li key={i}>{c.message} on <strong>{c.day}</strong> at <strong>{c.timeSlot}</strong>.</li>
-                                        ))}
-                                        {conflicts.length > 5 && <li>...and {conflicts.length - 5} more.</li>}
-                                    </ul>
+                            {/* Section / Lecturer selection */}
+                            <div className="flex flex-col lg:col-span-2">
+                                {user.role === UserRole.Admin && viewMode === 'lecturer' ? (
+                                    <>
+                                        <label className="text-sm font-medium text-gray-700">Select Lecturer</label>
+                                        <select value={selectedLecturer} onChange={e => setSelectedLecturer(e.target.value)} className="p-2 border rounded-md">
+                                            {allFaculty.map(f => <option key={f.id} value={f.name}>{f.name}</option>)}
+                                        </select>
+                                    </>
+                                ) : (
+                                    <>
+                                        <label className="text-sm font-medium text-gray-700">Select Section</label>
+                                        <select value={selectedSection} onChange={e => setSelectedSection(e.target.value)} className="p-2 border rounded-md">
+                                            {sections.map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                    </>
                                 )}
                             </div>
-                            {conflicts.length > 0 && isEditMode && !isCheckingConflicts && (
-                                <Button onClick={handleAutoArrange} disabled={isAutoArranging}>
-                                    <SparklesIcon /> {isAutoArranging ? 'Rearranging...' : 'Auto-Resolve Conflicts'}
+                            
+                            {selectedTimetable && (
+                                <div className="flex justify-end items-center">
+                                    <span className={`px-3 py-2 text-sm font-semibold rounded-full ${statusPillClasses[selectedTimetable.status]}`}>
+                                        {selectedTimetable.status}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                        {selectedTimetable?.notes && <p className="text-sm text-red-600 mt-2">Note: {selectedTimetable.notes}</p>}
+                        
+                        <div className="flex flex-wrap items-start justify-between gap-2 mt-4 border-t pt-4">
+                            {/* Left-aligned actions */}
+                            <div className="flex flex-wrap gap-2">
+                                {selectedTimetable?.status === 'Draft' && canManageTimetable && <Button onClick={handleSubmitForReview}>Submit for Review</Button>}
+                                {selectedTimetable?.status === 'Pending Approval' && user.role === UserRole.Admin && (
+                                    <>
+                                        <Button variant="success" onClick={handleApprove}><CheckIcon /> Approve</Button>
+                                        <Button variant="danger" onClick={() => setIsRejectModalOpen(true)}><XIcon/> Reject</Button>
+                                    </>
+                                )}
+
+                                {user.role !== UserRole.Student && (
+                                    <Button variant="secondary" onClick={handleRunConflictCheck} disabled={isCheckingConflicts}>
+                                        <AlertTriangleIcon/> {isCheckingConflicts ? 'Checking...' : 'Check Conflicts'}
+                                    </Button>
+                                )}
+                            </div>
+
+                            {/* Right-aligned actions */}
+                            <div className="flex flex-wrap gap-2">
+                                <Button 
+                                    variant="secondary" 
+                                    onClick={handleExportToExcel} 
+                                    disabled={!selectedTimetable || filteredEntries.length === 0}
+                                >
+                                    <DownloadIcon /> Export as Excel
                                 </Button>
+                                {user.role !== UserRole.Student && (
+                                    <Button onClick={() => setIsCreateModalOpen(true)}><PlusIcon/> Generate Timetable</Button>
+                                )}
+                                {user.role !== UserRole.Student && selectedTimetable && (selectedTimetable.status === 'Draft' || selectedTimetable.status === 'Rejected') && canManageTimetable && (
+                                <Button variant="danger" onClick={() => { setTimetableToDelete(selectedTimetable); setIsDeleteModalOpen(true); }}><TrashIcon /> Delete</Button>
+                                )}
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+                {user.role === UserRole.Admin && (
+                    <div className="lg:col-span-1">
+                        <Card title="Manage Holidays">
+                            <div className="space-y-4">
+                                <div>
+                                    <h4 className="font-semibold text-gray-700 mb-2 text-sm">Active Holidays</h4>
+                                    {holidays.length > 0 ? (
+                                        <div className="flex flex-wrap gap-2">
+                                            {holidays.map(day => (
+                                                <span key={day} className="bg-cu-accent text-white px-3 py-1 rounded-full flex items-center gap-2 text-sm">
+                                                    {day}
+                                                    <button onClick={() => handleRemoveHoliday(day)} className="text-white hover:text-gray-200 transition-colors">
+                                                        <XIcon className="w-4 h-4" />
+                                                    </button>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-gray-500 italic">No custom holidays defined.</p>
+                                    )}
+                                </div>
+                                <form onSubmit={handleAddHoliday} className="flex gap-2 border-t pt-4">
+                                    <input
+                                        type="text"
+                                        value={newHoliday}
+                                        onChange={e => setNewHoliday(e.target.value)}
+                                        placeholder="e.g., Friday"
+                                        className="flex-grow p-2 border border-gray-300 rounded-md focus:ring-cu-accent focus:border-cu-accent"
+                                    />
+                                    <Button type="submit"><PlusIcon className="w-5 h-5"/> Add</Button>
+                                </form>
+                            </div>
+                        </Card>
+                    </div>
+                )}
+            </div>
+
+            {conflictCheckRun && (
+                <div className={`mt-4 p-4 rounded-md ${conflicts.length > 0 ? 'bg-red-50' : 'bg-green-50'}`}>
+                        <div className="flex justify-between items-start">
+                        <div>
+                            <h4 className={`font-bold ${conflicts.length > 0 ? 'text-red-800' : 'text-green-800'}`}>
+                                {isCheckingConflicts ? 'Checking for conflicts...' : (conflicts.length > 0 ? `${conflicts.length} conflict(s) found:` : 'No conflicts found.')}
+                            </h4>
+                            {conflicts.length > 0 && !isCheckingConflicts && (
+                                <ul className="list-disc list-inside text-sm text-red-700 mt-2 space-y-1">
+                                    {conflicts.slice(0, 5).map((c, i) => (
+                                        <li key={i}>{c.message} on <strong>{c.day}</strong> at <strong>{c.timeSlot}</strong>.</li>
+                                    ))}
+                                    {conflicts.length > 5 && <li>...and {conflicts.length - 5} more.</li>}
+                                </ul>
                             )}
                         </div>
                     </div>
-                )}
-            </Card>
+                </div>
+            )}
 
             {selectedTimetable ? (
                  <Timetable 
                     data={filteredEntries} 
-                    isEditable={isEditMode}
+                    isEditable={false}
                     holidays={holidays}
                     conflicts={conflicts}
-                    onEntryMove={handleEntryMove}
-                    onEntryDelete={handleEntryDelete}
-                    onEntryCreate={(day, timeSlot) => { setEntryToEdit({ day, timeSlot }); setIsEntryModalOpen(true); }}
                 />
             ) : (
                 <Card><p className="text-center text-gray-500 py-8">No timetable selected or available.</p></Card>
@@ -1033,17 +972,6 @@ const SchedulerPage = () => {
 
             {/* Modals */}
             <CreateTimetableModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} onCreate={handleCreateNewDraft} />
-            {entryToEdit && (
-                <EntryEditModal 
-                    isOpen={isEntryModalOpen}
-                    onClose={() => setIsEntryModalOpen(false)}
-                    onSave={handleCreateEntry}
-                    allSubjects={allSubjects}
-                    allClassrooms={allClassrooms}
-                    availableSections={sections}
-                    entryData={entryToEdit}
-                />
-            )}
             <Modal isOpen={isRejectModalOpen} onClose={() => setIsRejectModalOpen(false)} title="Reject Timetable">
                 <div className="space-y-4">
                     <p>Please provide a reason for rejecting this timetable. This will be sent as a notification.</p>
@@ -1052,20 +980,10 @@ const SchedulerPage = () => {
                 </div>
             </Modal>
             <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Confirm Deletion">
-                <p>Are you sure you want to permanently delete Version {timetableToDelete?.version}? This action cannot be undone.</p>
+                <p className="text-gray-700">Are you sure you want to permanently delete Version {timetableToDelete?.version}? This action cannot be undone.</p>
                 <div className="flex justify-end gap-2 mt-4">
                     <Button variant="secondary" onClick={() => setIsDeleteModalOpen(false)}>Cancel</Button>
                     <Button variant="danger" onClick={handleDelete}>Delete</Button>
-                </div>
-            </Modal>
-             <Modal isOpen={isConfirmEditModalOpen} onClose={() => setIsConfirmEditModalOpen(false)} title="Create New Draft?">
-                <p>
-                    You are trying to edit a timetable that is already '{selectedTimetable?.status}'.
-                    To make changes, a new draft will be created by copying this version. Do you want to continue?
-                </p>
-                <div className="flex justify-end gap-2 mt-4">
-                    <Button variant="secondary" onClick={() => setIsConfirmEditModalOpen(false)}>Cancel</Button>
-                    <Button onClick={() => { setIsConfirmEditModalOpen(false); handleCreateDraftFromCurrent(); }}>Create Draft & Edit</Button>
                 </div>
             </Modal>
         </div>
@@ -1117,7 +1035,7 @@ const ManagementPage = () => {
     };
 
     const handleOpenFacultyModal = (member: Partial<Faculty> | null = null) => {
-        setEditingFaculty(member || { name: '', department: '', workload: 12 });
+        setEditingFaculty(member || { name: '', department: '', workload: 12, availability: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] });
         setIsFacultyModalOpen(true);
     };
 
@@ -1131,7 +1049,7 @@ const ManagementPage = () => {
                 name: editingFaculty.name || '',
                 department: editingFaculty.department || '',
                 workload: editingFaculty.workload || 0,
-                availability: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] // Default availability
+                availability: editingFaculty.availability || []
             });
         }
         setFaculty(updatedFaculty);
@@ -1184,14 +1102,14 @@ const ManagementPage = () => {
             <Modal isOpen={isClassroomModalOpen} onClose={() => setIsClassroomModalOpen(false)} title={editingClassroom?.id ? "Edit Classroom" : "Add Classroom"}>
                 <div className="space-y-4">
                     <div>
-                        <label>Name</label>
-                        <input type="text" value={editingClassroom?.name || ''} onChange={e => setEditingClassroom({...editingClassroom, name: e.target.value})} className="w-full p-2 border rounded-md" />
+                        <label className="block text-sm font-medium text-gray-700">Name</label>
+                        <input type="text" value={editingClassroom?.name || ''} onChange={e => setEditingClassroom({...editingClassroom, name: e.target.value})} className="mt-1 w-full p-2 border rounded-md" />
                     </div>
                     <div>
-                        <label>Capacity</label>
-                        <input type="number" value={editingClassroom?.capacity || ''} onChange={e => setEditingClassroom({...editingClassroom, capacity: parseInt(e.target.value)})} className="w-full p-2 border rounded-md" />
+                        <label className="block text-sm font-medium text-gray-700">Capacity</label>
+                        <input type="number" value={editingClassroom?.capacity || ''} onChange={e => setEditingClassroom({...editingClassroom, capacity: parseInt(e.target.value)})} className="mt-1 w-full p-2 border rounded-md" />
                     </div>
-                    <Button onClick={handleSaveClassroom}>Save</Button>
+                    <div className="flex justify-end"><Button onClick={handleSaveClassroom}>Save</Button></div>
                 </div>
             </Modal>
 
@@ -1199,18 +1117,40 @@ const ManagementPage = () => {
             <Modal isOpen={isFacultyModalOpen} onClose={() => setIsFacultyModalOpen(false)} title={editingFaculty?.id ? "Edit Faculty Member" : "Add Faculty Member"}>
                 <div className="space-y-4">
                     <div>
-                        <label>Name</label>
-                        <input type="text" value={editingFaculty?.name || ''} onChange={e => setEditingFaculty({...editingFaculty, name: e.target.value})} className="w-full p-2 border rounded-md" />
+                        <label className="block text-sm font-medium text-gray-700">Name</label>
+                        <input type="text" value={editingFaculty?.name || ''} onChange={e => setEditingFaculty({...editingFaculty, name: e.target.value})} className="mt-1 w-full p-2 border rounded-md" />
                     </div>
                     <div>
-                        <label>Department</label>
-                        <input type="text" value={editingFaculty?.department || ''} onChange={e => setEditingFaculty({...editingFaculty, department: e.target.value})} className="w-full p-2 border rounded-md" />
+                        <label className="block text-sm font-medium text-gray-700">Department</label>
+                        <input type="text" value={editingFaculty?.department || ''} onChange={e => setEditingFaculty({...editingFaculty, department: e.target.value})} className="mt-1 w-full p-2 border rounded-md" />
                     </div>
                     <div>
-                        <label>Workload (hours/week)</label>
-                        <input type="number" value={editingFaculty?.workload || ''} onChange={e => setEditingFaculty({...editingFaculty, workload: parseInt(e.target.value)})} className="w-full p-2 border rounded-md" />
+                        <label className="block text-sm font-medium text-gray-700">Workload (hours/week)</label>
+                        <input type="number" value={editingFaculty?.workload || ''} onChange={e => setEditingFaculty({...editingFaculty, workload: parseInt(e.target.value)})} className="mt-1 w-full p-2 border rounded-md" />
                     </div>
-                    <Button onClick={handleSaveFaculty}>Save</Button>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Availability</label>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => (
+                                <label key={day} className="flex items-center space-x-2 p-2 border rounded-md cursor-pointer hover:bg-gray-100">
+                                    <input
+                                        type="checkbox"
+                                        checked={editingFaculty?.availability?.includes(day) || false}
+                                        onChange={(e) => {
+                                            const currentAvailability = editingFaculty?.availability || [];
+                                            const newAvailability = e.target.checked
+                                                ? [...currentAvailability, day]
+                                                : currentAvailability.filter(d => d !== day);
+                                            setEditingFaculty({ ...editingFaculty, availability: newAvailability });
+                                        }}
+                                        className="form-checkbox h-4 w-4 text-cu-primary rounded focus:ring-cu-accent"
+                                    />
+                                    <span className="text-sm">{day}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="flex justify-end"><Button onClick={handleSaveFaculty}>Save</Button></div>
                 </div>
             </Modal>
         </div>
@@ -1223,27 +1163,33 @@ const NotificationsPage = () => {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     
     useEffect(() => {
-        if(user) getNotifications(user.role).then(setNotifications);
+        if(user) getNotifications(user).then(setNotifications);
     }, [user]);
 
     const handleMarkAsRead = async (id: string) => {
-        const updatedNotifications = await markNotificationAsRead(id);
-        if(user) setNotifications(updatedNotifications.filter(n => n.target === NotificationTarget.All || n.target === (user.role as string)));
+        await markNotificationAsRead(id);
+        if (user) {
+            getNotifications(user).then(setNotifications);
+        }
     };
 
     return (
         <Card title="Notifications">
-            <ul className="space-y-4">
-                {notifications.map(n => (
-                    <li key={n.id} className={`p-4 rounded-lg flex justify-between items-start ${n.isRead ? 'bg-gray-100' : 'bg-blue-50'}`}>
-                        <div>
-                            <p className="text-gray-800">{n.message}</p>
-                            <span className="text-xs text-gray-500">{new Date(n.timestamp).toLocaleString()}</span>
-                        </div>
-                        {!n.isRead && <Button onClick={() => handleMarkAsRead(n.id)}>Mark as Read</Button>}
-                    </li>
-                ))}
-            </ul>
+             {notifications.length > 0 ? (
+                <ul className="space-y-4">
+                    {notifications.map(n => (
+                        <li key={n.id} className={`p-4 rounded-lg flex justify-between items-start gap-4 ${n.isRead ? 'bg-gray-100' : 'bg-blue-50'}`}>
+                            <div>
+                                <p className="text-gray-800">{n.message}</p>
+                                <span className="text-xs text-gray-500">{new Date(n.timestamp).toLocaleString()}</span>
+                            </div>
+                            {!n.isRead && <Button className="px-2 py-1 text-xs whitespace-nowrap" onClick={() => handleMarkAsRead(n.id)}>Mark as Read</Button>}
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p className="text-center text-gray-500 py-8">No notifications.</p>
+            )}
         </Card>
     );
 };
