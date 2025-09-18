@@ -4,7 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Centurion University Timetable Scheduler</title>
+    <title>Smart Scheduler</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -28,7 +28,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-  <script type="importmap">
+    <!-- 1. Add Babel Standalone for in-browser transpilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script type="importmap">
 {
   "imports": {
     "react": "https://aistudiocdn.com/react@^19.1.1",
@@ -40,6 +42,7 @@
 </head>
   <body class="bg-cu-light">
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+    <!-- 2. Change the script type to "text/babel" and add presets -->
+    <script type="text/babel" data-presets="react,typescript" data-type="module" src="./index.tsx"></script>
   </body>
 </html>

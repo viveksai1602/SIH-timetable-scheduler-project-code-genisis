@@ -1,4 +1,4 @@
-import { UserRole, User, TimetableEntry, Classroom, Notification, Subject, NotificationTarget, Faculty, TimetableObject, TimetableStatus, Conflict } from '../types';
+import { UserRole, User, TimetableEntry, Classroom, Notification, Subject, NotificationTarget, Faculty, TimetableObject, TimetableStatus, Conflict } from '../types.ts';
 
 // --- LOCAL STORAGE PERSISTENCE ---
 

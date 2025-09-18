@@ -1,5 +1,5 @@
 {
-  "name": "Centurion University Timetable Scheduler",
-  "description": "A clean, modern, and responsive website for Centurion University’s Smart Classroom & Automated Timetable Scheduler. It allows for role-based access, automated timetable generation, classroom management, and notifications.",
+  "name": "Smart Scheduler",
+  "description": "A clean, modern, and responsive website for a Smart Classroom & Automated Timetable Scheduler. It allows for role-based access, automated timetable generation, classroom management, and notifications.",
   "requestFramePermissions": []
 }

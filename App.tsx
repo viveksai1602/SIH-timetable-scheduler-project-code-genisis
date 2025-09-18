@@ -1,8 +1,8 @@
 
 import React, { useState, createContext, useContext, ReactNode, useEffect, useMemo } from 'react';
-import { User, UserRole, TimetableEntry, Classroom, Notification, Subject, NotificationTarget, TimetableObject, Faculty, Conflict } from './types';
-import { mockLogin, getDashboardData, createNewDraftTimetable, getTimetables, getClassrooms, getNotifications, getSubjects, saveTimetable, markNotificationAsRead, addSubject, deleteSubject, getHolidays, setHolidays as apiSetHolidays, sendNotification, submitForReview, approveTimetable, rejectTimetable, getFaculty, deleteTimetable, addClassroom, deleteClassroom, addFacultyMember, deleteFacultyMember, checkForConflicts, updateClassroom, updateFacultyMember, createDraftFromTimetable, autoArrangeTimetable, cancelClass } from './services/mockApi';
-import { Header, Footer, Sidebar, Card, Button, Timetable, Modal, TrashIcon, CheckIcon, XIcon, DownloadIcon, PlusIcon, EditIcon, AlertTriangleIcon, SparklesIcon, EyeIcon, EyeOffIcon } from './components/ui';
+import { User, UserRole, TimetableEntry, Classroom, Notification, Subject, NotificationTarget, TimetableObject, Faculty, Conflict } from './types.ts';
+import { mockLogin, getDashboardData, createNewDraftTimetable, getTimetables, getClassrooms, getNotifications, getSubjects, saveTimetable, markNotificationAsRead, addSubject, deleteSubject, getHolidays, setHolidays as apiSetHolidays, sendNotification, submitForReview, approveTimetable, rejectTimetable, getFaculty, deleteTimetable, addClassroom, deleteClassroom, addFacultyMember, deleteFacultyMember, checkForConflicts, updateClassroom, updateFacultyMember, createDraftFromTimetable, autoArrangeTimetable, cancelClass } from './services/mockApi.ts';
+import { Header, Footer, Sidebar, Card, Button, Timetable, Modal, TrashIcon, CheckIcon, XIcon, DownloadIcon, PlusIcon, EditIcon, AlertTriangleIcon, SparklesIcon, EyeIcon, EyeOffIcon } from './components/ui.tsx';
 
 declare const XLSX: any;
 
@@ -100,7 +100,7 @@ const LoginPage = ({ onNavigate }: { onNavigate: (page: string) => void }) => {
                 <nav className="container mx-auto px-6 py-4 flex justify-between items-center">
                     <div className="flex items-center">
                         <img src="https://sih.gov.in/img/logo.png" alt="SIH Logo" className="h-12 w-auto" />
-                        <span className="text-2xl font-bold text-cu-primary ml-4">Centurion University Smart Scheduler</span>
+                        <span className="text-2xl font-bold text-cu-primary ml-4">Smart Scheduler</span>
                     </div>
                 </nav>
             </header>
@@ -109,7 +109,7 @@ const LoginPage = ({ onNavigate }: { onNavigate: (page: string) => void }) => {
                 <div className="text-center max-w-2xl mb-10">
                     <h1 className="text-4xl font-bold text-cu-primary tracking-tight sm:text-5xl">Welcome to the Future of Scheduling</h1>
                     <p className="mt-4 text-lg text-gray-600">
-                        Our intelligent platform automates timetable creation for Centurion University, optimizing classroom usage and balancing faculty workloads. Please log in to access your dashboard.
+                        Our intelligent platform automates timetable creation, optimizing classroom usage and balancing faculty workloads. Please log in to access your dashboard.
                     </p>
                 </div>
 

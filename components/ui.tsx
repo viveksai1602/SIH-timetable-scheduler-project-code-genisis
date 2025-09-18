@@ -1,6 +1,6 @@
 
 import React, { ReactNode, useState } from 'react';
-import { TimetableEntry, User, UserRole, Conflict } from '../types';
+import { TimetableEntry, User, UserRole, Conflict } from '../types.ts';
 
 // --- SVG ICONS ---
 const CalendarIcon = ({ className = 'w-6 h-6' }: { className?: string }) => (
@@ -75,7 +75,7 @@ export const Header = ({ user, onLogout, onToggleSidebar }: { user: User; onLogo
                         <MenuIcon />
                     </button>
                     <img src="https://sih.gov.in/img/logo.png" alt="SIH Logo" className="h-10 w-auto" />
-                    <span className="text-xl font-bold text-cu-primary ml-3 hidden sm:block">Centurion University Scheduler</span>
+                    <span className="text-xl font-bold text-cu-primary ml-3 hidden sm:block">Smart Scheduler</span>
                 </div>
                 <div className="flex items-center space-x-4">
                     <span className="text-gray-600 hidden md:block">Welcome, {user.name} ({user.role})</span>
@@ -91,7 +91,7 @@ export const Header = ({ user, onLogout, onToggleSidebar }: { user: User; onLogo
 export const Footer = () => (
     <footer className="bg-cu-primary text-white py-6 mt-auto">
         <div className="container mx-auto text-center px-4">
-            <p>&copy; {new Date().getFullYear()} Centurion University of Technology and Management. All Rights Reserved.</p>
+            <p>&copy; {new Date().getFullYear()} Smart Scheduler. All Rights Reserved.</p>
             <p className="text-sm mt-2">Smart Classroom & Automated Timetable Scheduler for SIH</p>
         </div>
     </footer>
