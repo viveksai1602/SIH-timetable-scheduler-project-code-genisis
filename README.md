@@ -1,5 +1,4 @@
 # Smart Scheduler
-# Run and deploy your AI Studio app
 **Smart Classroom & Automated Timetable Scheduler** — a proof-of-concept web application built for the [Smart India Hackathon (SIH)](https://www.sih.gov.in/) to automate university timetable creation, reduce scheduling conflicts, and provide role-based access for administrators, lecturers, and students.
 **Repository:** [SIH-timetable-scheduler-project-code-genisis](https://github.com/Noah-sam/SIH-timetable-scheduler-project-code-genisis)
 
